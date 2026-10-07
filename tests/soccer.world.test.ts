@@ -3,14 +3,14 @@ import { matchWinner } from '../src/engine/season';
 import type { Chaos } from '../src/world/soccer/weird';
 import { VANISH_PER_SEASON } from '../src/world/soccer/weird';
 import {
-  betError, clubSwitchError, createSoccerUniverse, DRAW_PICK, reduceAllSoccer, reduceSoccer, regularDays, runSoccerCommand,
+  betError, clubSwitchError, createSoccerWorld, DRAW_PICK, reduceAllSoccer, reduceSoccer, regularDays, runSoccerCommand,
   type SoccerSettings, type SoccerUniverse,
 } from '../src/world/soccer/universe';
 
 const settings = (p: Partial<SoccerSettings> = {}): SoccerSettings => ({
   name: 'Test Assembly', seed: 'world', leagueSize: 12, chaos: 'normal', timeMode: 'manual', dayLengthMinutes: 60, ...p,
 });
-const fresh = (p: Partial<SoccerSettings> = {}) => createSoccerUniverse('u', settings(p), null, 0);
+const fresh = (p: Partial<SoccerSettings> = {}) => createSoccerWorld('u', settings(p), null, 0);
 
 describe('Democracy FC world (S5)', () => {
   it.each(['calm', 'normal', 'weird', 'unhinged'] as Chaos[])('a full season at %s chaos runs end to end', (chaos) => {
@@ -27,7 +27,7 @@ describe('Democracy FC world (S5)', () => {
       for (const id of t.squad) expect(state.league.players[id]?.teamId).toBe(t.id);
     }
     // Goals in season stats match the results.
-    const goals = Object.values(state.results).reduce((s, r) => s + r.homeScore + r.awayScore, 0);
+    const goals = Object.values(state.results).reduce((s, r) => s + r.homeScore + r.awayScore - (r.bonusPoints ?? 0), 0);
     const scored = Object.values(state.seasonStats).reduce((s, l) => s + l.goals, 0);
     expect(scored).toBe(goals);
   });

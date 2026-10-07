@@ -1,0 +1,110 @@
+{
+  "proposals": [
+    {
+      "id": "status-quo", "title": "Keep the Facility as It Is", "type": "statusQuo",
+      "description": "No changes. The Director will be disappointed.",
+      "effect": { "kind": "statusQuo" },
+      "favors": {}, "hurts": {}, "factionLean": { "purists": 3, "statheads": 1, "chaos": -3 }
+    },
+    {
+      "id": "wall-goals-double", "title": "Wall Goals Count Double", "type": "matchRule",
+      "description": "Any goal banked off a wall is worth two.",
+      "effect": { "kind": "goalValue", "wall": 2 }, "duration": { "days": 14 },
+      "favors": { "stars": { "attack": 1 }, "drives": ["showboat", "selfish"], "styles": ["allOutAttack"] },
+      "hurts": { "styles": ["parkTheBus"] },
+      "factionLean": { "chaos": 3, "casuals": 2, "purists": -3 }
+    },
+    {
+      "id": "long-range-double", "title": "Long-Range Goals Count Double", "type": "matchRule",
+      "description": "Goals from outside the attacking third count twice.",
+      "effect": { "kind": "goalValue", "longRange": 2 }, "duration": { "days": 14 },
+      "favors": { "stars": { "attack": 1 }, "drives": ["showboat", "selfish"], "styles": ["longBallSiege"] },
+      "hurts": { "styles": ["parkTheBus"] },
+      "factionLean": { "chaos": 2, "casuals": 2, "purists": -2 }
+    },
+    {
+      "id": "spot-kick-fourth", "title": "Spot Kicks from the 4th Foul", "type": "matchRule",
+      "description": "Accumulated-foul Spot Kicks start at a team's 4th foul of the half instead of the 6th.",
+      "effect": { "kind": "spotKickFrom", "fouls": 4 }, "duration": { "days": 14 },
+      "favors": { "stars": { "attack": 1 }, "drives": ["showboat", "ice"], "styles": ["allOutAttack", "counterPunch"] },
+      "hurts": { "stars": { "defense": 1 }, "drives": ["wall"], "styles": ["parkTheBus"] },
+      "factionLean": { "statheads": 1, "chaos": 1, "purists": -2 }
+    },
+    {
+      "id": "long-power-play", "title": "Three-Minute Power Plays", "type": "matchRule",
+      "description": "A red card leaves a side short for three minutes, not two.",
+      "effect": { "kind": "powerPlaySeconds", "seconds": 180 }, "duration": { "days": 14 },
+      "favors": { "drives": ["ice", "conductor"], "styles": ["possessionWall"] },
+      "hurts": { "drives": ["wall"], "styles": ["parkTheBus"] },
+      "factionLean": { "chaos": 1, "purists": -1, "statheads": 1 }
+    },
+    {
+      "id": "wind-tunnel", "title": "Wind Tunnel Pitches", "type": "facilityRule",
+      "description": "Every match is played with the Wind Tunnel on for two weeks.",
+      "effect": { "kind": "facilityEvent", "eventId": "wind-tunnel" }, "duration": { "days": 14 },
+      "favors": { "styles": ["longBallSiege", "counterPunch"], "stars": { "defense": 1 } },
+      "hurts": { "styles": ["possessionWall"], "stars": { "playmaking": 1 } },
+      "factionLean": { "chaos": 2, "lore": 1, "purists": -2 }
+    },
+    {
+      "id": "heavy-ball", "title": "Heavy Ball", "type": "matchRule",
+      "description": "A heavier ball for every match: first touches suffer, long balls die in the air.",
+      "effect": { "kind": "facilityEvent", "eventId": "ball-swap" }, "duration": { "days": 14 },
+      "favors": { "styles": ["parkTheBus", "possessionWall"], "stars": { "defense": 1 } },
+      "hurts": { "styles": ["longBallSiege"], "stars": { "attack": 1 } },
+      "factionLean": { "purists": 1, "statheads": 1, "casuals": -2 }
+    },
+    {
+      "id": "all-narrows", "title": "Everyone Plays in The Narrows", "type": "facilityRule",
+      "description": "The facility rebuilds every arena as The Narrows for two weeks. Wings rule.",
+      "effect": { "kind": "arena", "arenaId": "narrows" }, "duration": { "days": 14 },
+      "favors": { "stars": { "engine": 1 }, "drives": ["conductor", "showboat"], "styles": ["counterPunch", "allOutAttack"] },
+      "hurts": { "styles": ["possessionWall"] },
+      "factionLean": { "chaos": 2, "lore": 2, "purists": -2 }
+    },
+    {
+      "id": "all-octagon", "title": "Everyone Plays in The Octagon", "type": "facilityRule",
+      "description": "Angled corners everywhere for two weeks. Rebounds come back toward goal.",
+      "effect": { "kind": "arena", "arenaId": "octagon" }, "duration": { "days": 14 },
+      "favors": { "drives": ["predator", "selfish"], "styles": ["allOutAttack", "longBallSiege"] },
+      "hurts": { "styles": ["parkTheBus"] },
+      "factionLean": { "chaos": 3, "casuals": 1, "purists": -2 }
+    },
+    {
+      "id": "lights-out-doubled", "title": "Double the Lights Out", "type": "facilityRule",
+      "description": "Director facility events happen twice as often for two weeks.",
+      "effect": { "kind": "facilityChance", "perMille": 150 }, "duration": { "days": 14 },
+      "favors": { "drives": ["spark", "ice"] },
+      "hurts": { "drives": ["conductor"] },
+      "factionLean": { "chaos": 3, "lore": 2, "purists": -3, "statheads": -2 }
+    },
+    {
+      "id": "sabotage-leader", "title": "The Leaders Train in the Cold Room", "type": "sabotage",
+      "description": "The club with the best record plays its next 3 matches in the Cold Room.",
+      "effect": { "kind": "sabotage", "target": "bestRecord", "arenaId": "cold-room", "matches": 3 },
+      "favors": {}, "hurts": {}, "target": "bestRecord",
+      "factionLean": { "chaos": 2, "lore": 1, "loyalists": -1 }
+    },
+    {
+      "id": "boost-bottom", "title": "A Drill Buff for the Bottom Club", "type": "boost",
+      "description": "The lowest-ranked club wins The Drill before each of its next 4 matches.",
+      "effect": { "kind": "boost", "target": "worstRecord", "delta": { "finishing": 6, "passing": 6, "pace": 6 }, "matches": 4 },
+      "favors": {}, "hurts": {}, "target": "worstRecord",
+      "factionLean": { "casuals": 1, "lore": 1, "statheads": -1 }
+    },
+    {
+      "id": "eject-two", "title": "Eject Two Clubs This Season", "type": "ejection",
+      "description": "The bottom two clubs leave the facility at season's end.",
+      "effect": { "kind": "ejections", "count": 2 },
+      "favors": {}, "hurts": {}, "target": "bottomTwo",
+      "factionLean": { "chaos": 2, "statheads": 1, "loyalists": -2 }
+    },
+    {
+      "id": "eject-none", "title": "Nobody Is Ejected This Season", "type": "ejection",
+      "description": "The facility spares every club this year.",
+      "effect": { "kind": "ejections", "count": 0 },
+      "favors": {}, "hurts": {}, "target": "bottomOne",
+      "factionLean": { "loyalists": 3, "casuals": 1, "chaos": -2 }
+    }
+  ]
+}

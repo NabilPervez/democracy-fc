@@ -101,7 +101,7 @@ export type SoccerEvent = SEventBase & (
   | { kind: 'dribble'; playerId: string; defenderId: string; success: boolean; rivals?: boolean }
   | { kind: 'longBall'; from: string; to: string | null; success: boolean }
   | { kind: 'shot'; playerId: string; assistId?: string; quality: number; outcome: ShotOutcome; keeperId: string; blockerId?: string; /** Banked off a wall (wallShot, §B5). */ wall?: 'left' | 'right' }
-  | { kind: 'goal'; scorerId: string; assistId?: string; teamId: string }
+  | { kind: 'goal'; scorerId: string; assistId?: string; teamId: string; /** Points when a Facility rule makes it count extra. */ value?: number }
   | { kind: 'keeperRestart'; teamId: string; keeperId: string }
   // S4: fouls, set pieces, cards, injuries, shootouts.
   | { kind: 'tackle'; defenderId: string; victimId: string; foul: true }

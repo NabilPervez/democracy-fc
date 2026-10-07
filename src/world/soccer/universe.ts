@@ -10,6 +10,12 @@ import { applyRelationPairs, awaken, AWAKENINGS_PER_SEASON, relationPairs, type 
 import { facilityEventsFor, modDeltas, rollSoccerDay, type ActiveMod, type Chaos, type SoccerHappening } from './weird';
 import names from '../../../content/soccer/names.json';
 import { ARENAS } from '../../engine/soccer/arenas';
+import { FACILITY_EVENTS } from './weird';
+import {
+  averageStars, benefit, clubBudget, clubSplit, clubView, ELECTION_DAYS, electionTotals, electionWinner, factionSplitSoccer,
+  generateSoccerProposals, soccerVotesCost, type SoccerElection, type SoccerProposal,
+} from './elections';
+import type { MatchRules } from '../../engine/soccer/game';
 
 /**
  * Democracy FC world (PRD Part B): The Assembly's league, run as an event-sourced state like the
@@ -47,6 +53,8 @@ export interface SoccerMatchSummary {
   knockout?: boolean;
   /** Director facility events at this match. */
   facility?: string[];
+  /** Extra points from goals a Facility rule made count double. */
+  bonusPoints?: number;
   arenaId: string;
 }
 
@@ -134,6 +142,28 @@ export interface SoccerUniverse {
   ejections: number;
   /** Next new-club number (ids stay unique after Ejections). */
   nextClub: number;
+  /** Facility elections (§B7); the last one is open while `result` is null. */
+  elections: SoccerElection[];
+  /** Rules the fans voted in, until they expire. */
+  activeRules: ActiveRule[];
+  /** Sabotage / boost on specific clubs, counted down per match. */
+  clubEffects: ClubEffect[];
+}
+
+export interface ActiveRule {
+  proposalId: string;
+  title: string;
+  effect: SoccerProposal['effect'];
+  season: number;
+  untilDay: number;
+}
+
+export interface ClubEffect {
+  clubId: string;
+  title: string;
+  arenaId?: string;
+  delta?: Partial<Record<string, number>>;
+  matchesLeft: number;
 }
 
 export type SoccerWorldEvent =
@@ -142,6 +172,7 @@ export type SoccerWorldEvent =
   | { type: 'happening'; happening: SoccerHappening }
   | { type: 'betPlaced'; gameId: string; teamId: string; amount: number }
   | { type: 'clubSwitched'; clubId: string }
+  | { type: 'votesBought'; electionId: number; proposal: number; count: number }
   | { type: 'dayEnded'; day: number };
 
 export type SoccerCommand =
@@ -215,7 +246,15 @@ export function createSoccerUniverse(id: string, settings: SoccerSettings, favor
     factions: createFactions(settings.seed, league.teams.map((t) => t.id)).map((f) => ({ ...f, ...FACTION_NAMES[f.id] })),
     ejections: DEFAULT_EJECTIONS,
     nextClub: league.teams.length + 1,
+    elections: [],
+    activeRules: [],
+    clubEffects: [],
   };
+}
+
+/** A new universe opens its first election straight away. */
+export function createSoccerWorld(id: string, settings: SoccerSettings, favoriteClubId: string | null, now: number): SoccerUniverse {
+  return withNewElection(createSoccerUniverse(id, settings, favoriteClubId, now), 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -247,18 +286,56 @@ export function matchOdds(s: SoccerUniverse, gameId: string) {
 }
 
 /** Everything the engine needs for one match, derived only from the state (so replays match). */
+/** Rules in force today. */
+export const rulesInForce = (s: SoccerUniverse) => s.activeRules.filter((r) => r.season === s.season && r.untilDay >= s.currentDay);
+
 export function matchInputs(s: SoccerUniverse, game: SoccerFixture): { opts: SoccerSimOptions; facility: string[] } {
-  const facility = facilityEventsFor(s.settings.seed, s.season, game, s.settings.chaos, s.league);
+  const rules = rulesInForce(s);
+  const chanceBonus = rules.reduce((n, r) => n + (r.effect.kind === 'facilityChance' ? r.effect.perMille : 0), 0);
+  const facility = facilityEventsFor(s.settings.seed, s.season, game, s.settings.chaos, s.league, chanceBonus);
   const out = unavailable(s);
   for (const id of facility.sealed) out.add(id);
+  const teamDeltas: Record<string, Partial<Record<string, number>>> = { ...facility.teamDeltas };
+  const addDelta = (key: string, d: Partial<Record<string, number>> | undefined) => {
+    if (!d) return;
+    const cur = { ...(teamDeltas[key] ?? {}) };
+    for (const [k, v] of Object.entries(d)) cur[k] = (cur[k] ?? 0) + (v ?? 0);
+    teamDeltas[key] = cur;
+  };
+  const events = [...facility.events];
+  const matchRules: MatchRules = {};
+  let arenaId: string | undefined;
+  for (const r of rules) {
+    const e = r.effect;
+    if (e.kind === 'goalValue') {
+      if (e.wall) matchRules.wallGoalValue = e.wall;
+      if (e.longRange) matchRules.longRangeGoalValue = e.longRange;
+    } else if (e.kind === 'spotKickFrom') matchRules.spotKickFrom = e.fouls;
+    else if (e.kind === 'powerPlaySeconds') matchRules.powerPlaySeconds = e.seconds;
+    else if (e.kind === 'arena') arenaId = e.arenaId;
+    else if (e.kind === 'facilityEvent') {
+      const def = FACILITY_EVENTS.find((f) => f.id === e.eventId);
+      if (def) {
+        addDelta('*', def.delta);
+        events.push({ eventId: def.id, text: `Director: By vote of the fans, ${def.name} is in effect.` });
+      }
+    }
+  }
+  for (const c of s.clubEffects) {
+    if (c.matchesLeft <= 0 || (c.clubId !== game.homeId && c.clubId !== game.awayId)) continue;
+    if (c.arenaId) arenaId = c.arenaId;
+    addDelta(c.clubId, c.delta);
+  }
   return {
     opts: {
       unavailable: out,
       knockout: isKnockout(s, game.id),
       allowAwakening: s.awakenings.filter((a) => a.season === s.season).length < AWAKENINGS_PER_SEASON,
-      teamDeltas: facility.teamDeltas,
+      teamDeltas: teamDeltas as SoccerSimOptions['teamDeltas'],
       playerDeltas: modDeltas(s.mods, s.season, s.currentDay),
-      facilityEvents: facility.events,
+      facilityEvents: events,
+      rules: matchRules,
+      arenaId,
     },
     facility: facility.events.map((e) => e.eventId),
   };
@@ -381,6 +458,9 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
         careerStats,
         injuries,
         league: applyRelationPairs(state.league, event.relations),
+        clubEffects: state.clubEffects
+          .map((c) => (c.clubId === summary.homeId || c.clubId === summary.awayId ? { ...c, matchesLeft: c.matchesLeft - 1 } : c))
+          .filter((c) => c.matchesLeft > 0),
       };
       for (const id of event.awakenings) {
         const p = next.league.players[id];
@@ -435,6 +515,16 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
       };
     }
 
+    case 'votesBought': {
+      const e = currentElection(state);
+      if (!e || e.id !== event.electionId || voteError(state, event.electionId, event.proposal, event.count)) return state;
+      const have = e.playerVotes[event.proposal];
+      const cost = soccerVotesCost(have + event.count) - soccerVotesCost(have);
+      const playerVotes = e.playerVotes.map((v, i) => (i === event.proposal ? v + event.count : v));
+      const elections = state.elections.map((x) => (x.id === e.id ? { ...x, playerVotes, coinsSpent: x.coinsSpent + cost } : x));
+      return { ...state, elections, coins: state.coins - cost, ledger: withLedger(state, -cost, `Votes: ${e.proposals[event.proposal].title}`) };
+    }
+
     case 'dayEnded': {
       if (event.day !== state.currentDay) return state;
       if (state.phase === 'offseason') return newSeason(state);
@@ -446,6 +536,11 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
         ledger: withLedger(state, DAILY_STIPEND, 'Daily fan stipend'),
         mods: expireMods(state.mods, state.season, state.currentDay + 1),
       };
+      const open = currentElection(next);
+      if (open && open.closesDay <= event.day) {
+        next = resolveElection(next, open);
+        next = withNewElection(next, event.day + 1);
+      } else if (!open) next = withNewElection(next, event.day + 1);
       if (state.phase === 'regular' && next.currentDay > regularDays(next)) next = beginPlayoffs(next);
       else if (state.phase === 'playoffs') next = continuePlayoffs(next);
       return next;
@@ -463,6 +558,103 @@ function expireMods(mods: Record<string, ActiveMod[]>, season: number, day: numb
 }
 
 export const reduceAllSoccer = (state: SoccerUniverse, events: SoccerWorldEvent[]) => events.reduce(reduceSoccer, state);
+
+// ---------------------------------------------------------------------------
+// Elections (§B7)
+
+export const currentElection = (s: SoccerUniverse): SoccerElection | null => {
+  const e = s.elections[s.elections.length - 1];
+  return e && !e.result ? e : null;
+};
+
+export function voteError(s: SoccerUniverse, electionId: number, proposal: number, count: number): string | null {
+  const e = currentElection(s);
+  if (!e || e.id !== electionId) return 'That election is closed.';
+  if (proposal < 0 || proposal >= e.proposals.length) return 'No such proposal.';
+  if (!Number.isInteger(count) || count < 1) return 'Buy at least 1 vote.';
+  const have = e.playerVotes[proposal];
+  if (soccerVotesCost(have + count) - soccerVotesCost(have) > s.coins) return 'Not enough coins.';
+  return null;
+}
+
+/** Club fan bases and factions decide their votes when the ballot opens (their lean is public). */
+export function withNewElection(s: SoccerUniverse, openedDay: number): SoccerUniverse {
+  const id = s.elections.length + 1;
+  const standings = soccerStandings(s);
+  const seed = [s.settings.seed, 'election', s.season, id];
+  const returnable = s.vanished.map((v) => ({ playerId: v.player.id, name: v.player.name }));
+  const proposals = generateSoccerProposals(standings, seed, returnable);
+  const views = s.league.teams.map((t) => clubView(s.league, t, standings));
+  const avg = averageStars(views);
+  const clubVotes = Object.fromEntries(
+    views.map((v) => [v.team.id, clubSplit(proposals.map((p) => benefit(v, p, avg)), clubBudget(v.team.fanSize), [...seed, v.team.id])]),
+  );
+  const factionVotes = Object.fromEntries(s.factions.map((f) => [f.id, factionSplitSoccer(f, proposals, seed)]));
+  const election: SoccerElection = {
+    id, season: s.season, openedDay, closesDay: openedDay + ELECTION_DAYS - 1, proposals, clubVotes, factionVotes,
+    playerVotes: proposals.map(() => 0), coinsSpent: 0, result: null,
+  };
+  return { ...s, elections: [...s.elections, election] };
+}
+
+function resolveElection(s: SoccerUniverse, e: SoccerElection): SoccerUniverse {
+  const totals = electionTotals(e);
+  const winner = electionWinner(totals);
+  const p = e.proposals[winner];
+  const elections = s.elections.map((x) => (x.id === e.id ? { ...x, result: { winner, totals } } : x));
+  const pct = Math.round((totals[winner] * 100) / Math.max(1, totals.reduce((a, b) => a + b, 0)));
+  const text = `The fans have spoken: ${p.title.toUpperCase()} (${pct}%).`;
+  let next: SoccerUniverse = { ...s, elections, news: withNews(s, [{ text: `Director: ${text}`, director: true }]), timeline: withTimeline(s, 'election', text) };
+  const fx = p.effect;
+  const days = p.duration?.days ?? 14;
+  switch (fx.kind) {
+    case 'statusQuo':
+      break;
+    case 'goalValue': case 'spotKickFrom': case 'powerPlaySeconds': case 'facilityEvent': case 'arena': case 'facilityChance':
+      next = { ...next, activeRules: [...next.activeRules, { proposalId: p.id, title: p.title, effect: fx, season: s.season, untilDay: s.currentDay + days }] };
+      break;
+    case 'sabotage':
+      next = { ...next, clubEffects: [...next.clubEffects, ...(p.targetClubIds ?? []).map((clubId) => ({ clubId, title: p.title, arenaId: fx.arenaId, matchesLeft: fx.matches }))] };
+      break;
+    case 'boost':
+      next = { ...next, clubEffects: [...next.clubEffects, ...(p.targetClubIds ?? []).map((clubId) => ({ clubId, title: p.title, delta: fx.delta, matchesLeft: fx.matches }))] };
+      break;
+    case 'ejections':
+      next = { ...next, ejections: fx.count };
+      break;
+    case 'return':
+      next = returnFromSubLevels(next, fx.playerId);
+      break;
+  }
+  return next;
+}
+
+/** Return only by election (§B6): back from the Sub-Levels, changed — a new mod and a new Drive. */
+function returnFromSubLevels(s: SoccerUniverse, playerId: string): SoccerUniverse {
+  const v = s.vanished.find((x) => x.player.id === playerId);
+  if (!v) return s;
+  const team = clubOf(s, v.player.teamId) ?? s.league.teams[0];
+  const rng = createRng(s.settings.seed, 'return', playerId, s.season);
+  // They take the squad place of a same-position player, who is released.
+  const slot = team.squad.map((id, i) => [id, i] as const).reverse().find(([id]) => s.league.players[id]?.position === v.player.position);
+  if (!slot) return s;
+  const drives = ['selfish', 'conductor', 'predator', 'wall', 'showboat', 'ice', 'spark'] as const;
+  const drive = rng.pick(drives.filter((d) => d !== v.player.drive));
+  const returned: SoccerPlayer = { ...v.player, teamId: team.id, drive };
+  const players = { ...s.league.players, [playerId]: returned };
+  delete players[slot[0]];
+  const squad = team.squad.map((id) => (id === slot[0] ? playerId : id));
+  const mod = rng.pick(['echoed', 'hollow-eyed']);
+  const text = `${returned.name} ${rng.pick(['came back up from the Sub-Levels. They won\'t say what\'s down there.', 'walked out of the service lift at dawn, in a kit nobody issued.'])}`;
+  return {
+    ...s,
+    league: { ...s.league, players, teams: s.league.teams.map((t) => (t.id === team.id ? { ...t, squad } : t)) },
+    vanished: s.vanished.filter((x) => x.player.id !== playerId),
+    mods: { ...s.mods, [playerId]: [...(s.mods[playerId] ?? []), { id: mod, season: s.season, untilDay: null }] },
+    news: withNews(s, [{ text: `Director: ${text}`, director: true }]),
+    timeline: withTimeline(s, 'return', text),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Playoffs (knockout: shootouts, never draws) and the offseason
@@ -564,6 +756,8 @@ function newSeason(s: SoccerUniverse): SoccerUniverse {
     seasonStats: {},
     playoffs: null,
     injuries: {},
+    ejections: DEFAULT_EJECTIONS,
+    clubEffects: [],
     mods: expireMods(s.mods, season, 1),
     news: withNews({ ...s, season }, [{ text: `Director: Season ${season} begins. Some of you are new. Do not get attached.`, director: true }], 1),
   };
@@ -590,6 +784,7 @@ export function runSoccerCommand(start: SoccerUniverse, cmd: SoccerCommand): Soc
       summary: {
         gameId: game.id, day: game.day, homeId: r.homeId, awayId: r.awayId, homeScore: r.homeScore, awayScore: r.awayScore,
         shootout: r.shootout, knockout: opts.knockout || undefined, facility: facility.length ? facility : undefined, arenaId: r.arenaId,
+        bonusPoints: r.events.reduce((n, e) => n + (e.kind === 'goal' && e.value ? e.value - 1 : 0), 0) || undefined,
       },
       box: soccerBoxScore(r),
       injuries: r.injuries,

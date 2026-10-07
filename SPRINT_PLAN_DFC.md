@@ -70,13 +70,13 @@ Universe runs soccer seasons end to end (league/schedule/results/stats through t
 - [x] A full soccer season at each chaos level runs with no exceptions.
 - [x] Vanish counts per season within ±50% of config over 20 seeds.
 
-## S6 — Club fan-base voting — ⬜
+## S6 — Club fan-base voting — ✅
 `favoriteClubId`, fan size, `benefit()`, proposals with `favors/hurts`, sabotage/boost/ejection proposals, coalition lean.
 
 **DoD**
-- [ ] Long-Ball club scores the wind rule higher than a Park-the-Bus club.
-- [ ] Top club votes against "best record" sabotage.
-- [ ] Player coins measurably swing a close election.
+- [x] Long-Ball club scores the wind rule higher than a Park-the-Bus club.
+- [x] Top club votes against "best record" sabotage.
+- [x] Player coins measurably swing a close election.
 
 ## S6b — Matchday Ballot — ⬜
 `tactics.json`, ballot generation (3 tactics + 3 captains), supporter blocs, free + quadratic votes, resolution at kickoff as a world event, captain bonus/burden, recap cause lines.
@@ -171,3 +171,10 @@ Winner-assumption checklist (from grep) and what happened to each:
 - Vitest `testTimeout` raised to 30 s: the pre-existing baseball death-rate test passes alone in ~5 s but hit the 5 s default once the soccer season suites ran in parallel. No assertion changed.
 - Not yet: Living-time mode and personas for soccer (S7), elections (S6), Echo Goal event (S8).
 - `tests/soccer.world.test.ts` (16 tests). 287 tests pass, lint + typecheck clean. **S5 done.**
+
+### S6 — 2026-10-07
+- `content/soccer/proposals.json` (14 original proposals with `favors` / `hurts` / `factionLean`): match rules (wall goals ×2, long-range ×2, Spot Kicks from the 4th foul, 3-minute power plays, Heavy Ball), facility rules (Wind Tunnel, all matches in The Narrows / The Octagon, double facility events), sabotage (leaders to the Cold Room), boost (Drill buff for the bottom club), Ejection rules (eject two / none), plus Return proposals generated for Vanished players.
+- `src/world/soccer/elections.ts`: `clubView` (public star groups, drives, Style, rank), `benefit()` (integer favors − hurts + standings/target term), club budgets from `fanSize`, `clubSplit` (self-interested), `factionSplitSoccer` (ideology lean, rethemed factions), `coalitions()`, quadratic vote pricing reused from the base.
+- World: weekly ballots open at creation (`createSoccerWorld`) and every 7 days; `votesBought` adds the player's votes to their club's bloc; winning rules apply as `activeRules` (engine `MatchRules`: goal values, Spot Kick threshold, power-play length; arena overrides; forced facility events; facility chance) or `clubEffects` (sabotage arena / boost deltas counted down per match); Ejection count per season; Return brings a player back with a permanent mod and a new Drive.
+- Match summaries carry `bonusPoints` when a rule made a goal count double.
+- `tests/elections.clubs.test.ts` (6 tests). 293 tests pass, lint + typecheck clean. **S6 done.**

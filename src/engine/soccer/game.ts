@@ -109,6 +109,7 @@ interface MatchState {
   sigUses: Record<string, number>;
   awakenings: string[];
   allowAwakening: boolean;
+  rules: MatchRules;
   teamDeltas: Record<string, Partial<Record<SoccerRatingKey, number>>>;
   playerDeltas: Record<string, Partial<Record<SoccerRatingKey, number>>>;
   injuries: Record<string, number>;
@@ -234,11 +235,11 @@ function rollingSubs(s: MatchState) {
 }
 
 /** A goal: score, momentum, and a short-handed conceding side gets its fifth player back. */
-function scoreGoal(s: MatchState, att: Side, def: Side, zone: Zone, scorerId: string, assistId: string | undefined) {
+function scoreGoal(s: MatchState, att: Side, def: Side, zone: Zone, scorerId: string, assistId: string | undefined, value = 1) {
   const trailing = (att.home ? s.score.home - s.score.away : s.score.away - s.score.home) < 0;
-  if (att.home) s.score.home++;
-  else s.score.away++;
-  emit(s, att, zone, { kind: 'goal', scorerId, assistId, teamId: att.team.id });
+  if (att.home) s.score.home += value;
+  else s.score.away += value;
+  emit(s, att, zone, { kind: 'goal', scorerId, assistId, teamId: att.team.id, value: value > 1 ? value : undefined });
   swingMomentum(s, att, 4);
   if (def.short) endPowerPlay(s, def);
   // Awakening (§B4): scoring while trailing late. Rare; the world caps it per season.
@@ -289,7 +290,7 @@ function removePlayer(s: MatchState, side: Side, id: string, red: boolean) {
   }
   if (slot < 0) return;
   if (red && !side.short) {
-    side.short = { slot, until: s.second + 120 };
+    side.short = { slot, until: s.second + (s.rules.powerPlaySeconds ?? 120) };
     emit(s, side, undefined, { kind: 'powerPlay', teamId: side.team.id, untilSecond: side.short.until, phase: 'defSetPiece', defPhase: 'attSetPiece' });
     return;
   }
@@ -356,7 +357,7 @@ function foul(s: MatchState, att: Side, def: Side, zone: Zone, victim: string, f
   }
 
   const keeper = def.five[0];
-  const spot = zone === 'att' && s.rng.chance(FOUL_RATES.inBox) ? 'penalty' : def.fouls >= FOUL_RATES.spotKickFrom ? 'spotKick' : null;
+  const spot = zone === 'att' && s.rng.chance(FOUL_RATES.inBox) ? 'penalty' : def.fouls >= (s.rules.spotKickFrom ?? FOUL_RATES.spotKickFrom) ? 'spotKick' : null;
   if (spot) {
     const taker = penaltyTaker(s, att);
     if (spot === 'spotKick') emit(s, att, zone, { kind: 'spotKick', teamId: att.team.id, takerId: taker, phase: 'attSetPiece', defPhase: 'defSetPiece' });
@@ -463,7 +464,9 @@ function shoot(s: MatchState, att: Side, def: Side, shooter: string, zone: Zone,
   const attI = sideIndex(s, att.team.id);
   const defI = 1 - attI;
   if (outcome === 'goal') {
-    scoreGoal(s, att, def, zone, shooter, assistId);
+    // Facility rules can make some goals worth more (§B7 match rules).
+    const value = wall ? s.rules.wallGoalValue ?? 1 : zone === 'mid' ? s.rules.longRangeGoalValue ?? 1 : 1;
+    scoreGoal(s, att, def, zone, shooter, assistId, value);
     return { next: { attacking: defI, zone: 'mid', kind: 'kickoff' } };
   }
   if (outcome === 'saved') swingMomentum(s, def, 1);
@@ -660,6 +663,18 @@ export interface SoccerSimOptions {
   playerDeltas?: Record<string, Partial<Record<SoccerRatingKey, number>>>;
   /** Director announcements logged at kickoff. */
   facilityEvents?: { eventId: string; text: string }[];
+  /** Match rules voted in by the fans (§B7). */
+  rules?: MatchRules;
+}
+
+export interface MatchRules {
+  /** Team foul that starts Spot Kicks (default 6). */
+  spotKickFrom?: number;
+  /** Red-card power play length (default 120). */
+  powerPlaySeconds?: number;
+  /** Points for a banked goal / a goal from the middle third (default 1). */
+  wallGoalValue?: number;
+  longRangeGoalValue?: number;
 }
 
 /** 5 kicks each, then sudden death; every player on the floor takes one before anyone goes twice. */
@@ -729,6 +744,7 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
     sigUses: {},
     awakenings: [],
     allowAwakening: opts.allowAwakening ?? true,
+    rules: opts.rules ?? {},
     teamDeltas: opts.teamDeltas ?? {},
     playerDeltas: opts.playerDeltas ?? {},
     injuries: {},
