@@ -1,5 +1,6 @@
 import names from '../../../content/soccer/names.json';
 import { createRng, type Rng } from '../../engine/core/rng';
+import { ARENAS, signaturesFor } from '../../engine/soccer/arenas';
 import type { Drive, SoccerLeague, SoccerPlayer, SoccerPosition, SoccerRatingKey, SoccerRatings, SoccerTeam, Style } from '../../engine/soccer/types';
 
 export const SOCCER_RATING_KEYS: SoccerRatingKey[] = [
@@ -46,15 +47,13 @@ export function makeSoccerPlayer(rng: Rng, id: string, teamId: string, position:
     if (!used.has(name)) break;
   }
   used.add(name);
-  return {
-    id,
-    name,
-    teamId,
-    position,
-    drive: rng.pick(DRIVE_POOL[position]),
-    ratings: makeSoccerRatings(rng, position),
-    catchphrase: rng.pick(names.catchphrases),
-  };
+  const drive = rng.pick(DRIVE_POOL[position]);
+  const ratings = makeSoccerRatings(rng, position);
+  const catchphrase = rng.pick(names.catchphrases);
+  // About half the players who fit one carry a Signature Move.
+  const options = signaturesFor(position, drive);
+  const signatureId = options.length && rng.chance(550) ? rng.pick(options).id : undefined;
+  return { id, name, teamId, position, drive, ratings, catchphrase, signatureId, bonds: {}, rivals: {} };
 }
 
 export const abbrOf = (city: string) => city.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
@@ -92,6 +91,8 @@ export function generateSoccerLeague(opts: SoccerLeagueOptions): SoccerLeague {
       style: rng.pick(STYLES),
       squad,
       fanSize: rng.range(40, 100),
+      // Every club gets a home arena; the facility spreads the architecture around.
+      arenaId: ARENAS[t % ARENAS.length].id,
     });
   }
   return { seed: opts.seed, name: opts.name ?? 'The Assembly', teams, players };

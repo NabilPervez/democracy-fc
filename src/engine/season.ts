@@ -1,4 +1,4 @@
-import type { GameResult, Player, Ratings, ScheduledGame, StarGroup, Team } from './baseball/types';
+import type { GameResult, Player, Ratings, ScheduledGame, StarGroup } from './baseball/types';
 
 const STAR_GROUPS: Record<StarGroup, (keyof Ratings)[]> = {
   batting: ['contact', 'power', 'discipline'],
@@ -19,7 +19,7 @@ export function stars(player: Player, group: StarGroup): number {
  * other team once per cycle of n-1 days. Home/away alternate between cycles. Requires an even
  * number of teams. `days` = games per team in the season.
  */
-export function generateSchedule(teams: Team[], days: number): ScheduledGame[] {
+export function generateSchedule(teams: readonly { id: string }[], days: number): ScheduledGame[] {
   const ids = teams.map((t) => t.id);
   const n = ids.length;
   const games: ScheduledGame[] = [];
@@ -62,7 +62,7 @@ export function matchWinner(r: ScoreLine): string | null {
  * Sports without draws keep the original order (wins, then fewest losses, then run difference —
  * points are 3× wins so ranking by points is identical). With draws: points, goal difference, goals for.
  */
-export function computeStandings(teams: Team[], results: ScoreLine[]): StandingRow[] {
+export function computeStandings(teams: readonly { id: string }[], results: ScoreLine[]): StandingRow[] {
   const rows = new Map<string, StandingRow>(
     teams.map((t) => [t.id, { teamId: t.id, wins: 0, draws: 0, losses: 0, points: 0, runsFor: 0, runsAgainst: 0 }]),
   );

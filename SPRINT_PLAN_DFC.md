@@ -54,14 +54,14 @@ Types, generator (8-player squads, drives, styles), possession chains on the 3×
 - [x] High Block yields more `def`-zone turnovers than Low Block (aggregate).
 - [x] Calibration still passes.
 
-## S4c — Arena & personality layer — ⬜
+## S4c — Arena & personality layer — ✅
 Walls (`wallPass`, `wallShot`, scrambles), signature moves (accumulated fouls, Spot Kicks and power plays already landed in S4), bonds/rivalries, awakening, `arenas.json`.
 
 **DoD**
-- [ ] Calibration (5v5) passes; no throw-in/corner/goal-kick events ever.
-- [ ] Power play measurably raises opponent scoring.
-- [ ] Each arena moves its target stat in the expected direction over 500 matches.
-- [ ] ≤3 Awakenings per season over 20 seeds.
+- [x] Calibration (5v5) passes; no throw-in/corner/goal-kick events ever.
+- [x] Power play measurably raises opponent scoring.
+- [x] Each arena moves its target stat in the expected direction over 500 matches.
+- [x] ≤3 Awakenings per season over 20 seeds.
 
 ## S5 — Soccer world & content — ⬜
 Universe runs soccer seasons end to end (league/schedule/results/stats through the soccer engine). Names, arenas, weird-pack retheme, Vanished / Sub-Level Archive, Director events, ~150 templates.
@@ -150,3 +150,12 @@ Winner-assumption checklist (from grep) and what happened to each:
 - Engine: block per chain (emits `blockChange`), block effects (High Block: −pass/−dribble in opponent's Build-up, more space behind, ×1.25 stamina drain; Mid Block: `through` passes −, `around` +; Low Block: shot quality −8, more blocked shots, easier build-up), transition mini-resolution on every turnover (`transition` event; breakaways start in Creation with a 2v1 bonus), free-kick setups with shot modifiers, `lane` + `route` + `block` on every event.
 - Retuned chain length (8–16 s start) and foul rates; calibration (1,000 matches): goals 6.3, draws 14%, home 50.5%, shots 21.8/team, 113 chains, Spot Kicks 0.68, reds 0.12.
 - `tests/soccer.phase.test.ts` (8 tests). 263 tests pass, lint + typecheck clean. **S4b done.**
+
+### S4c — 2026-10-07
+- Walls: `wallPass` (Wing one-two off the glass), banked shots (`shot.wall`, no woodwork, keeper Reflexes count less), loose-ball **scrambles** (Pace + First Touch) after blocks, woodwork, parries and deflected passes.
+- `content/soccer/arenas.json` (9 arenas, effects as data) + `engine/soccer/arenas.ts`. Every club has a home arena; `opts.arenaId` overrides it (for Facility rules). Effects: Echo Chamber, Slope, Narrows, Octagon, Cold Room, Mirror Hall, The Pit (no momentum), Rotating Floor (`arenaShift` + scramble every 10 min).
+- `content/soccer/signatures.json` (7 original Signature Moves). ~55% of eligible players carry one; fire at 9% per trigger, max 2 per match, own `signature` event.
+- Bonds (+pass success, +assist quality, `pass.bond`) and Rivalries (+foul chance in duels, `dribble.rivals`) read from player data; `world/soccer/personality.ts` grows them from events (`applyRelations`), applies Awakenings (`awaken`: +12 to the position's key rating, Drive may evolve) and runs a full season with the league-wide cap of 3 (`simulateSoccerSeason`).
+- Stamina drain slowed (players were being subbed ~12× per team per match); Cold Room now clearly raises subs.
+- `generateSchedule`/`computeStandings` accept any `{ id }[]` (sport-agnostic).
+- `tests/soccer.walls.test.ts` (8 tests). 271 tests pass, lint + typecheck clean. **S4c done.**

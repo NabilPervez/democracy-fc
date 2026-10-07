@@ -1,0 +1,132 @@
+{
+ "signatures": [
+  {
+   "id": "glass-ricochet",
+   "name": "Glass Ricochet",
+   "text": "banks it off the side wall and in",
+   "positions": [
+    "W",
+    "P"
+   ],
+   "drives": [
+    "showboat",
+    "selfish",
+    "spark",
+    "predator"
+   ],
+   "trigger": "wallShot",
+   "effect": {
+    "quality": 22
+   }
+  },
+  {
+   "id": "floodlight-volley",
+   "name": "Floodlight Volley",
+   "text": "meets it on the full under the floodlights",
+   "positions": [
+    "P",
+    "W"
+   ],
+   "drives": [
+    "predator",
+    "selfish",
+    "ice"
+   ],
+   "trigger": "shot",
+   "effect": {
+    "quality": 16
+   }
+  },
+  {
+   "id": "closing-door",
+   "name": "The Closing Door",
+   "text": "throws everything in front of it",
+   "positions": [
+    "A"
+   ],
+   "drives": [
+    "wall",
+    "ice",
+    "conductor"
+   ],
+   "trigger": "defendShot",
+   "effect": {
+    "block": true
+   }
+  },
+  {
+   "id": "countdown-turn",
+   "name": "Countdown Turn",
+   "text": "spins away as the clock bleeds out",
+   "positions": [
+    "P"
+   ],
+   "drives": [
+    "ice",
+    "showboat",
+    "predator",
+    "selfish"
+   ],
+   "trigger": "dribble",
+   "effect": {
+    "success": true,
+    "quality": 8
+   },
+   "lateOnlySeconds": 300
+  },
+  {
+   "id": "ghost-run",
+   "name": "Ghost Run",
+   "text": "plays it off the glass and runs onto it unseen",
+   "positions": [
+    "W"
+   ],
+   "drives": [
+    "conductor",
+    "showboat",
+    "spark"
+   ],
+   "trigger": "wallPass",
+   "effect": {
+    "success": true,
+    "quality": 10
+   }
+  },
+  {
+   "id": "iron-palms",
+   "name": "Iron Palms",
+   "text": "gets two strong hands to it",
+   "positions": [
+    "K"
+   ],
+   "drives": [
+    "wall",
+    "ice",
+    "spark"
+   ],
+   "trigger": "save",
+   "effect": {
+    "save": true
+   }
+  },
+  {
+   "id": "silk-thread",
+   "name": "Silk Thread",
+   "text": "threads a pass nobody else saw",
+   "positions": [
+    "A",
+    "W",
+    "P"
+   ],
+   "drives": [
+    "conductor"
+   ],
+   "trigger": "pass",
+   "effect": {
+    "success": true,
+    "advance": true,
+    "quality": 10
+   }
+  }
+ ]
+}

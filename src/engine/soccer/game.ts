@@ -1,4 +1,5 @@
 import { createRng, type Rng } from '../core/rng';
+import { getArena, getSignature, type ArenaEffects, type SignatureDef, type SignatureTrigger } from './arenas';
 import { selectLineup } from './lineup';
 import { BLOCK_PHASE, chooseBlock, chooseSetup, IN_POSSESSION, laneOfSlot, rollTransition, SETUP_SHOT_BONUS } from './phase';
 import type {
@@ -18,30 +19,30 @@ const HOME_BONUS = 2;
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
-type Action = 'pass' | 'dribble' | 'longBall' | 'shot';
-const ACTIONS: readonly Action[] = ['pass', 'dribble', 'longBall', 'shot'];
+type Action = 'pass' | 'dribble' | 'longBall' | 'shot' | 'wallPass';
+const ACTIONS: readonly Action[] = ['pass', 'dribble', 'longBall', 'shot', 'wallPass'];
 
 /** Base action weights by zone (relative to the team in possession). */
 const ZONE_WEIGHTS: Record<Zone, Record<Action, number>> = {
-  def: { pass: 70, dribble: 15, longBall: 15, shot: 0 },
-  mid: { pass: 56, dribble: 26, longBall: 14, shot: 4 },
-  att: { pass: 32, dribble: 22, longBall: 0, shot: 46 },
+  def: { pass: 70, dribble: 15, longBall: 15, shot: 0, wallPass: 0 },
+  mid: { pass: 50, dribble: 24, longBall: 13, shot: 4, wallPass: 9 },
+  att: { pass: 28, dribble: 20, longBall: 0, shot: 46, wallPass: 6 },
 };
 
 /** Style = the club's long-term identity: action-weight multipliers in percent (§B5). */
 export const STYLE_WEIGHTS: Record<Style, Record<Action, number>> = {
-  allOutAttack: { pass: 90, dribble: 115, longBall: 90, shot: 125 },
-  counterPunch: { pass: 90, dribble: 110, longBall: 125, shot: 105 },
-  possessionWall: { pass: 135, dribble: 90, longBall: 65, shot: 90 },
-  longBallSiege: { pass: 80, dribble: 85, longBall: 175, shot: 105 },
-  parkTheBus: { pass: 105, dribble: 85, longBall: 110, shot: 85 },
+  allOutAttack: { pass: 90, dribble: 115, longBall: 90, shot: 125, wallPass: 110 },
+  counterPunch: { pass: 90, dribble: 110, longBall: 125, shot: 105, wallPass: 100 },
+  possessionWall: { pass: 135, dribble: 90, longBall: 65, shot: 90, wallPass: 125 },
+  longBallSiege: { pass: 80, dribble: 85, longBall: 175, shot: 105, wallPass: 70 },
+  parkTheBus: { pass: 105, dribble: 85, longBall: 110, shot: 85, wallPass: 90 },
 };
 
 const DRIVE_WEIGHTS: Partial<Record<SoccerPlayer['drive'], Partial<Record<Action, number>>>> = {
   selfish: { shot: 165, pass: 80 },
-  conductor: { pass: 130, shot: 75 },
+  conductor: { pass: 130, shot: 75, wallPass: 120 },
   wall: { shot: 0, pass: 120 },
-  showboat: { dribble: 175 },
+  showboat: { dribble: 175, wallPass: 130 },
   predator: { shot: 120 },
 };
 
@@ -102,6 +103,12 @@ interface MatchState {
   lane: Lane;
   /** Last free kick's defensive setup. */
   setup: 'wall' | 'man' | 'zonal' | null;
+  arenaId: string;
+  arena: ArenaEffects;
+  /** Signature Move uses this match (max 2 each). */
+  sigUses: Record<string, number>;
+  awakenings: string[];
+  allowAwakening: boolean;
   injuries: Record<string, number>;
   events: SoccerEvent[];
 }
@@ -115,6 +122,7 @@ const otherSide = (s: MatchState, side: Side) => (s.sides[0] === side ? s.sides[
 
 /** Shift momentum toward one side, bounded to −10..+10. Integer math. */
 function swingMomentum(s: MatchState, toward: Side, amount: number) {
+  if (s.arena.noMomentum) return;
   s.momentum = clamp(s.momentum + (toward.home ? amount : -amount), -10, 10);
 }
 
@@ -126,6 +134,7 @@ function rating(s: MatchState, side: Side, id: string, key: SoccerRatingKey): nu
   if (st < 60) v -= Math.trunc((60 - st) / 4);
   // Ice: composure bonus in the last 10 minutes of the match.
   if (key === 'composure' && p.drive === 'ice' && s.half === 2 && s.second >= s.halfEnd - 600) v += 15;
+  if (key === 'composure' && p.drive === 'showboat') v += s.arena.showboatComposure ?? 0;
   // Momentum lifts the side that has it (±2 at the extremes).
   v += Math.trunc((side.home ? s.momentum : -s.momentum) / 4);
   // Power play: four can't cover the floor, and everyone has more room against them.
@@ -177,6 +186,8 @@ function pickAction(s: MatchState, side: Side, carrier: string, zone: Zone, step
   const weights = ACTIONS.map((a) => {
     let w = ZONE_WEIGHTS[zone][a] * style[a] * (drive[a] ?? 100);
     if (isKeeper && a !== 'pass' && a !== 'longBall') w = 0;
+    // Wall passes are a Wing specialty.
+    if (a === 'wallPass' && side.five.indexOf(carrier) !== 2 && side.five.indexOf(carrier) !== 3) w = 0;
     return w;
   });
   const total = weights.reduce((x, y) => x + y, 0);
@@ -195,7 +206,8 @@ function drainStamina(s: MatchState, seconds: number) {
       // Keepers barely tire; outfielders lose more the lower their Stamina rating.
       const base = side.five[0] === id ? 1 : 3 + Math.trunc((100 - rating(s, side, id, 'stamina')) / 20);
       const press = s.blocks[side.team.id] === 'high' ? 5 : 4; // High Block: ×1.25
-      s.stamina[id] = Math.max(0, (s.stamina[id] ?? 100) - Math.trunc((base * seconds * press) / 100));
+      const cold = s.arena.staminaPct ?? 100;
+      s.stamina[id] = Math.max(0, (s.stamina[id] ?? 100) - Math.trunc((base * seconds * press * cold) / 33000));
     }
     for (const id of side.bench) s.stamina[id] = Math.min(100, (s.stamina[id] ?? 100) + Math.trunc(seconds / 6));
   }
@@ -220,11 +232,17 @@ function rollingSubs(s: MatchState) {
 
 /** A goal: score, momentum, and a short-handed conceding side gets its fifth player back. */
 function scoreGoal(s: MatchState, att: Side, def: Side, zone: Zone, scorerId: string, assistId: string | undefined) {
+  const trailing = (att.home ? s.score.home - s.score.away : s.score.away - s.score.home) < 0;
   if (att.home) s.score.home++;
   else s.score.away++;
   emit(s, att, zone, { kind: 'goal', scorerId, assistId, teamId: att.team.id });
   swingMomentum(s, att, 4);
   if (def.short) endPowerPlay(s, def);
+  // Awakening (§B4): scoring while trailing late. Rare; the world caps it per season.
+  if (s.allowAwakening && trailing && s.half === 2 && s.second >= s.halfEnd - 600 && !s.awakenings.length && s.rng.chance(AWAKEN_PM)) {
+    s.awakenings.push(scorerId);
+    emit(s, att, zone, { kind: 'awakening', playerId: scorerId, teamId: att.team.id });
+  }
 }
 
 /** The freshest reserve for a slot (keepers only for the keeper slot). */
@@ -355,6 +373,40 @@ function foul(s: MatchState, att: Side, def: Side, zone: Zone, victim: string, f
   return 'continue';
 }
 
+export const SIGNATURE_PM = 90;
+export const BOND_ACTIVE = 3;
+export const RIVAL_ACTIVE = 3;
+/** Per mille, a late goal by a trailing side Awakens the scorer (the world caps it per season). */
+export const AWAKEN_PM = 25;
+
+const bonded = (s: MatchState, a: string, b: string) => (s.league.players[a]?.bonds?.[b] ?? 0) >= BOND_ACTIVE;
+const rivals = (s: MatchState, a: string, b: string) => (s.league.players[a]?.rivals?.[b] ?? 0) >= RIVAL_ACTIVE;
+const wallSide = (s: MatchState): 'left' | 'right' => (s.lane === 'right' ? 'right' : 'left');
+
+/** A Signature Move fires: rare, at most twice a match per player, logged with its own event. */
+function trySignature(s: MatchState, attacking: Side, zone: Zone, id: string, trigger: SignatureTrigger): SignatureDef | null {
+  const sig = getSignature(s.league.players[id]?.signatureId);
+  if (!sig || sig.trigger !== trigger || (s.sigUses[id] ?? 0) >= 2) return null;
+  if (sig.lateOnlySeconds && !(s.half === 2 && s.second >= s.halfEnd - sig.lateOnlySeconds)) return null;
+  if (!s.rng.chance(SIGNATURE_PM)) return null;
+  s.sigUses[id] = (s.sigUses[id] ?? 0) + 1;
+  emit(s, attacking, zone, { kind: 'signature', playerId: id, signatureId: sig.id });
+  return sig;
+}
+
+/** A loose ball off the walls: Pace + First Touch decide who comes away with it. */
+function scramble(s: MatchState, a: Side, b: Side, zone: Zone): { side: Side; playerId: string } {
+  const pa = playerAt(s, a, RECEIVERS_BY_ZONE[zone]);
+  const pb = playerAt(s, b, DEFENDERS_BY_ZONE[zone]);
+  const aWins = s.rng.chance(clamp(500 + (avg2(s, a, pa, 'pace', 'firstTouch') - avg2(s, b, pb, 'pace', 'firstTouch')) * 4, 200, 800));
+  const [winSide, win, lose] = aWins ? [a, pa, pb] : [b, pb, pa];
+  emit(s, a, zone, { kind: 'scramble', winnerId: win, loserId: lose, winnerTeamId: winSide.team.id });
+  return { side: winSide, playerId: win };
+}
+
+/** The downhill side on The Slope: home in the 1st half, away in the 2nd. */
+const downhill = (s: MatchState, side: Side) => (s.half === 1) === side.home;
+
 interface ChainStart {
   attacking: number; // side index
   zone: Zone;
@@ -362,10 +414,13 @@ interface ChainStart {
   kind: 'kickoff' | 'turnover' | 'restart';
 }
 
-/** Resolve a shot. Returns the outcome and who (if anyone) has the ball next. */
-function shoot(s: MatchState, att: Side, def: Side, shooter: string, zone: Zone, bonus: number, assistId: string | undefined): { outcome: ShotOutcome; next: ChainStart | 'continue' } {
+/** What happens to the ball after a shot: a new chain, or the attackers keep it after a scramble. */
+type AfterShot = { next: ChainStart } | { keep: string };
+
+/** Resolve a shot (or a banked wallShot). */
+function shoot(s: MatchState, att: Side, def: Side, shooter: string, zone: Zone, bonus: number, assistId: string | undefined, wall = false): AfterShot {
   const p = s.league.players[shooter];
-  const defender = playerAt(s, def, DEFENDERS_BY_ZONE[zone]);
+  let defender = playerAt(s, def, DEFENDERS_BY_ZONE[zone]);
   const keeper = def.five[0];
   let quality = (zone === 'att' ? 34 : 10) + Math.trunc((rating(s, att, shooter, 'finishing') - 50) / 3) + bonus;
   quality += Math.trunc((rating(s, att, shooter, 'composure') - 50) / 6);
@@ -374,34 +429,50 @@ function shoot(s: MatchState, att: Side, def: Side, shooter: string, zone: Zone,
   if (p.drive === 'selfish') quality -= 3;
   const lowBlock = s.blocks[def.team.id] === 'low';
   if (lowBlock) quality -= 8;
+  if (wall) quality += -6 + (s.arena.wallShotQuality ?? 0);
+  if (downhill(s, att)) quality += s.arena.downhillQuality ?? 0;
+  const sig = trySignature(s, att, zone, shooter, wall ? 'wallShot' : 'shot');
+  if (sig) quality += sig.effect.quality ?? 0;
   quality = clamp(quality, 3, 92);
+
+  // The Closing Door: a defender's signature block.
+  const closer = def.five.find((id) => id && getSignature(s.league.players[id].signatureId)?.trigger === 'defendShot');
+  const doorShut = closer ? trySignature(s, def, MIRROR[zone], closer, 'defendShot') : null;
+  if (doorShut && closer) defender = closer;
 
   const blockPm = clamp(110 + (lowBlock ? 50 : 0) + (rating(s, def, defender, 'positioning') - 50) * 2 - quality, 40, 300);
   let outcome: ShotOutcome;
   let blockerId: string | undefined;
-  if (s.rng.chance(blockPm)) {
+  if (doorShut || s.rng.chance(blockPm)) {
     outcome = 'blocked';
     blockerId = defender;
   } else if (!s.rng.chance(clamp(430 + quality * 5, 300, 920))) {
-    outcome = s.rng.int(9) === 0 ? 'woodwork' : 'wide';
+    outcome = !wall && s.rng.int(9) === 0 ? 'woodwork' : 'wide';
   } else {
-    const keeping = Math.trunc((rating(s, def, keeper, 'reflexes') * 2 + rating(s, def, keeper, 'handling')) / 3);
+    // Banked shots are unpredictable: Reflexes count for less.
+    const reflexes = rating(s, def, keeper, 'reflexes') + (wall ? s.arena.wallShotReflexes ?? 0 : 0);
+    const keeping = wall ? Math.trunc((reflexes + rating(s, def, keeper, 'handling') * 2) / 3) - 6 : Math.trunc((reflexes * 2 + rating(s, def, keeper, 'handling')) / 3);
     outcome = s.rng.chance(clamp(Math.trunc((quality * 17) / 2) - (keeping - 50) * 2, 30, 900)) ? 'goal' : 'saved';
+    if (outcome === 'goal' && trySignature(s, def, MIRROR[zone], keeper, 'save')) outcome = 'saved';
   }
-  emit(s, att, zone, { kind: 'shot', playerId: shooter, assistId, quality, outcome, keeperId: keeper, blockerId });
+  emit(s, att, zone, { kind: 'shot', playerId: shooter, assistId, quality, outcome, keeperId: keeper, blockerId, wall: wall ? wallSide(s) : undefined });
 
   const attI = sideIndex(s, att.team.id);
   const defI = 1 - attI;
   if (outcome === 'goal') {
     scoreGoal(s, att, def, zone, shooter, assistId);
-    return { outcome, next: { attacking: defI, zone: 'mid', kind: 'kickoff' } };
+    return { next: { attacking: defI, zone: 'mid', kind: 'kickoff' } };
   }
   if (outcome === 'saved') swingMomentum(s, def, 1);
-  // The walls keep the ball live: blocks, woodwork and parried saves can fall back to the attack.
-  const reboundPm = outcome === 'blocked' ? 380 : outcome === 'woodwork' ? 450 : outcome === 'saved' ? 260 : 0;
-  if (reboundPm && s.rng.chance(reboundPm)) return { outcome, next: 'continue' };
-  if (outcome === 'blocked') return { outcome, next: { attacking: defI, zone: MIRROR[zone], carrier: blockerId, kind: 'turnover' } };
-  return { outcome, next: { attacking: defI, zone: 'def', carrier: keeper, kind: 'restart' } };
+  // The walls keep the ball live: blocks, woodwork and parried saves rebound into a scramble.
+  const reboundPm = (outcome === 'blocked' ? 520 : outcome === 'woodwork' ? 650 : outcome === 'saved' ? 360 : 0) + (outcome === 'wide' ? 0 : s.arena.reboundPm ?? 0);
+  if (reboundPm && s.rng.chance(reboundPm)) {
+    const loose = scramble(s, att, def, 'att');
+    if (loose.side === att) return { keep: loose.playerId };
+    return { next: { attacking: defI, zone: 'def', carrier: loose.playerId, kind: 'turnover' } };
+  }
+  if (outcome === 'blocked') return { next: { attacking: defI, zone: MIRROR[zone], carrier: blockerId, kind: 'turnover' } };
+  return { next: { attacking: defI, zone: 'def', carrier: keeper, kind: 'restart' } };
 }
 
 function runChain(s: MatchState, start: ChainStart): ChainStart {
@@ -459,10 +530,12 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
     const defender = playerAt(s, def, DEFENDERS_BY_ZONE[zone]);
 
     if (action === 'shot') {
-      const { next } = shoot(s, att, def, carrier, zone, bonus, assist);
-      if (next !== 'continue') return next;
-      // Rebound: a scramble in the attacking zone, the attackers win it.
-      hold(playerAt(s, att, RECEIVERS_BY_ZONE.att));
+      // Wings and Showboats like to bank it off the glass.
+      const slot = att.five.indexOf(carrier);
+      const banks = zone === 'att' && (slot === 2 || slot === 3 || s.league.players[carrier].drive === 'showboat') && s.rng.chance(220);
+      const after = shoot(s, att, def, carrier, zone, bonus, assist, banks);
+      if ('next' in after) return after.next;
+      hold(after.keep);
       zone = 'att';
       assist = undefined;
       bonus = 4;
@@ -474,16 +547,30 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
       const dfn = avg2(s, def, defender, 'positioning', 'tackling');
       const to0 = playerAt(s, att, RECEIVERS_BY_ZONE[ADVANCE[zone]], carrier);
       const through = att.five.indexOf(to0) === 4 || att.five.indexOf(to0) === 1;
-      const success = s.rng.chance(clamp(820 + (atk - dfn) * 3 - (zone === 'att' ? 90 : 0) + PASS_VS_BLOCK[block][zone] + (block === 'mid' && zone === 'mid' ? (through ? -60 : 20) : 0), 450, 960));
+      const bond = bonded(s, carrier, to0);
+      const routePm = zone === 'att' ? 0 : through ? s.arena.throughPassPm ?? 0 : s.arena.aroundPassPm ?? 0;
+      const silk = trySignature(s, att, zone, carrier, 'pass');
+      const success = !!silk || s.rng.chance(clamp(820 + (atk - dfn) * 3 - (zone === 'att' ? 90 : 0) + PASS_VS_BLOCK[block][zone] + (block === 'mid' && zone === 'mid' ? (through ? -60 : 20) : 0) + routePm + (bond ? 50 : 0), 450, 960));
       const advancePm = (zone === 'def' ? 520 : zone === 'mid' ? 360 : 0) + (block === 'high' && zone === 'mid' ? 120 : 0);
-      const advanced = success && advancePm > 0 && s.rng.chance(advancePm);
+      const advanced = success && advancePm > 0 && (!!silk?.effect.advance || s.rng.chance(advancePm));
       const nextZone = advanced ? ADVANCE[zone] : zone;
       const to = advanced ? to0 : playerAt(s, att, RECEIVERS_BY_ZONE[nextZone], carrier);
-      emit(s, att, zone, { kind: 'pass', from: carrier, to, success, advanced, interceptorId: success ? undefined : defender, route: advanced ? (through ? 'through' : 'around') : undefined });
-      if (!success) return { attacking: defI, zone: MIRROR[zone], carrier: defender, kind: 'turnover' };
+      emit(s, att, zone, { kind: 'pass', from: carrier, to, success, advanced, interceptorId: success ? undefined : defender, route: advanced ? (through ? 'through' : 'around') : undefined, bond: bond && to === to0 ? true : undefined });
+      if (!success) {
+        // A deflected pass can cannon off the walls into a scramble.
+        if (s.rng.chance(150 + (s.arena.scramblePm ?? 0))) {
+          const loose = scramble(s, att, def, zone);
+          if (loose.side === def) return { attacking: defI, zone: MIRROR[zone], carrier: loose.playerId, kind: 'turnover' };
+          hold(loose.playerId);
+          assist = undefined;
+          bonus = 0;
+          continue;
+        }
+        return { attacking: defI, zone: MIRROR[zone], carrier: defender, kind: 'turnover' };
+      }
       const conductor = s.league.players[carrier].drive === 'conductor';
       assist = carrier;
-      bonus = nextZone === 'att' ? 6 + (conductor ? 6 : 0) + Math.trunc((rating(s, att, carrier, 'vision') - 50) / 8) : 0;
+      bonus = nextZone === 'att' ? 6 + (conductor ? 6 : 0) + (bond ? 4 : 0) + (silk?.effect.quality ?? 0) + Math.trunc((rating(s, att, carrier, 'vision') - 50) / 8) : 0;
       hold(to);
       zone = nextZone;
       continue;
@@ -493,25 +580,49 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
       const atk = avg2(s, att, carrier, 'dribbling', 'pace');
       const dfn = avg2(s, def, defender, 'tackling', 'pace');
       const showboat = s.league.players[carrier].drive === 'showboat';
-      const success = s.rng.chance(clamp(560 + (atk - dfn) * 4 + (showboat ? 40 : 0) + (block === 'high' && zone === 'def' ? -80 : 0), 250, 860));
-      if (s.rng.chance(success ? FOUL_RATES.beaten : FOUL_RATES.won)) {
+      const rivalry = rivals(s, carrier, defender);
+      const turn = trySignature(s, att, zone, carrier, 'dribble');
+      const success = !!turn || s.rng.chance(clamp(560 + (atk - dfn) * 4 + (showboat ? 40 : 0) + (block === 'high' && zone === 'def' ? -80 : 0), 250, 860));
+      // Rivals go at each other: more fouls when they duel.
+      if (!turn && s.rng.chance((success ? FOUL_RATES.beaten : FOUL_RATES.won) + (rivalry ? 120 : 0))) {
         const next = foul(s, att, def, zone, carrier, defender);
         if (next !== 'continue') return next;
         if (!att.five.includes(carrier)) carrier = penaltyTaker(s, att);
         // Free kick: in the attacking third the taker may go straight for goal.
         if (zone === 'att' && s.rng.chance(550)) {
           const shot = shoot(s, att, def, carrier, zone, -10 + SETUP_SHOT_BONUS[s.setup ?? 'man'], undefined);
-          if (shot.next !== 'continue') return shot.next;
-          hold(playerAt(s, att, RECEIVERS_BY_ZONE.att));
+          if ('next' in shot) return shot.next;
+          hold(shot.keep);
         }
         assist = undefined;
         bonus = 0;
         continue;
       }
-      emit(s, att, zone, { kind: 'dribble', playerId: carrier, defenderId: defender, success });
+      emit(s, att, zone, { kind: 'dribble', playerId: carrier, defenderId: defender, success, rivals: rivalry || undefined });
       if (!success) return { attacking: defI, zone: MIRROR[zone], carrier: defender, kind: 'turnover' };
       assist = undefined;
-      bonus = zone === 'att' ? 8 + (showboat ? 4 : 0) : 0;
+      bonus = (zone === 'att' ? 8 + (showboat ? 4 : 0) : 0) + (turn?.effect.quality ?? 0);
+      zone = ADVANCE[zone];
+      continue;
+    }
+
+    if (action === 'wallPass') {
+      // A one-two off the side wall: Passing + Vision vs the defender's Positioning.
+      const atk = avg2(s, att, carrier, 'passing', 'vision');
+      const ghost = trySignature(s, att, zone, carrier, 'wallPass');
+      const success = !!ghost || s.rng.chance(clamp(640 + (atk - rating(s, def, defender, 'positioning')) * 4 + (s.arena.wallPassPm ?? 0), 300, 900));
+      const wall = wallSide(s);
+      emit(s, att, zone, { kind: 'wallPass', from: carrier, to: carrier, wall, success, route: 'around' });
+      if (!success) {
+        const loose = scramble(s, att, def, zone);
+        if (loose.side === def) return { attacking: defI, zone: MIRROR[zone], carrier: loose.playerId, kind: 'turnover' };
+        hold(loose.playerId);
+        assist = undefined;
+        bonus = 0;
+        continue;
+      }
+      assist = undefined;
+      bonus = (zone === 'att' ? 8 : 0) + (ghost?.effect.quality ?? 0);
       zone = ADVANCE[zone];
       continue;
     }
@@ -536,6 +647,10 @@ export interface SoccerSimOptions {
   unavailable?: ReadonlySet<string>;
   /** Knockout match: a draw goes to a penalty shootout. */
   knockout?: boolean;
+  /** Override the home team's arena (Facility rules, S5+). */
+  arenaId?: string;
+  /** False once the season's Awakening cap is reached (default true). */
+  allowAwakening?: boolean;
 }
 
 /** 5 kicks each, then sudden death; every player on the floor takes one before anyone goes twice. */
@@ -585,6 +700,8 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
     for (const id of [...five, ...bench]) if (league.players[id].drive === 'spark') swing[id] = rng.range(-12, 12);
     return { team, home, five, bench, swing, fouls: 0, yellows: {}, short: null };
   };
+  const home = league.teams.find((t) => t.id === game.homeId)!;
+  const arena = getArena(opts.arenaId ?? home.arenaId);
   const s: MatchState = {
     rng,
     league,
@@ -598,6 +715,11 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
     blocks: {},
     lane: 'center',
     setup: null,
+    arenaId: arena.id,
+    arena: arena.effects,
+    sigUses: {},
+    awakenings: [],
+    allowAwakening: opts.allowAwakening ?? true,
     injuries: {},
     events: [],
   };
@@ -612,8 +734,17 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
       s.halfEnd = HALF_SECONDS * 2 + rng.int(3) * 60;
     }
     let next: ChainStart = { attacking: half === 1 ? 0 : 1, zone: 'mid', kind: 'kickoff' };
+    const rotate = s.arena.rotateEverySeconds ?? 0;
+    let nextRotation = rotate ? s.second + rotate : Infinity;
     while (s.second < s.halfEnd) {
       const before = s.second;
+      if (s.second >= nextRotation) {
+        // Rotating Floor: play stops, the floor turns, and the ball is fought for in the middle.
+        nextRotation += rotate;
+        emit(s, s.sides[0], 'mid', { kind: 'arenaShift', arenaId: s.arenaId, phase: 'attSetPiece', defPhase: 'defSetPiece' });
+        const loose = scramble(s, s.sides[0], s.sides[1], 'mid');
+        next = { attacking: s.sides.indexOf(loose.side), zone: 'mid', carrier: loose.playerId, kind: 'turnover' };
+      }
       for (const side of s.sides) if (side.short && s.second >= side.short.until) endPowerPlay(s, side);
       // Momentum fades a little every possession.
       s.momentum -= Math.sign(s.momentum);
@@ -626,5 +757,5 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
   const winnerId = s.score.home > s.score.away ? game.homeId : s.score.away > s.score.home ? game.awayId : null;
   emit(s, s.sides[0], undefined, { kind: 'fullTime', winnerId, phase: 'attSetPiece', defPhase: 'defSetPiece' });
   const shootout = winnerId === null && opts.knockout ? penaltyShootout(s) : undefined;
-  return { gameId: game.id, homeId: game.homeId, awayId: game.awayId, homeScore: s.score.home, awayScore: s.score.away, lineups, shootout, injuries: s.injuries, events: s.events };
+  return { gameId: game.id, homeId: game.homeId, awayId: game.awayId, homeScore: s.score.home, awayScore: s.score.away, lineups, shootout, injuries: s.injuries, awakenings: s.awakenings, arenaId: s.arenaId, events: s.events };
 }

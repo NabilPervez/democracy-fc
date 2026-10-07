@@ -1,0 +1,114 @@
+{
+ "arenas": [
+  {
+   "id": "glass-box",
+   "name": "The Glass Box",
+   "shape": "rect",
+   "wall": "glass",
+   "traits": [
+    "Standard rectangle, clear walls, floodlights above."
+   ],
+   "effects": {}
+  },
+  {
+   "id": "echo-chamber",
+   "name": "The Echo Chamber",
+   "shape": "rect",
+   "wall": "concrete",
+   "traits": [
+    "Concrete walls: rebounds come back fast."
+   ],
+   "effects": {
+    "wallShotQuality": 8,
+    "scramblePm": 150
+   }
+  },
+  {
+   "id": "slope",
+   "name": "The Slope",
+   "shape": "rect",
+   "wall": "glass",
+   "traits": [
+    "The floor tilts toward one goal. Ends swap at half-time."
+   ],
+   "effects": {
+    "downhillQuality": 6
+   }
+  },
+  {
+   "id": "narrows",
+   "name": "The Narrows",
+   "shape": "narrow",
+   "wall": "glass",
+   "traits": [
+    "Long and thin: the centre lane is half-width."
+   ],
+   "effects": {
+    "throughPassPm": -90,
+    "aroundPassPm": 40,
+    "wallPassPm": 60
+   }
+  },
+  {
+   "id": "octagon",
+   "name": "The Octagon",
+   "shape": "octagon",
+   "wall": "steel",
+   "traits": [
+    "Angled corners send rebounds back toward goal."
+   ],
+   "effects": {
+    "reboundPm": 180
+   }
+  },
+  {
+   "id": "cold-room",
+   "name": "The Cold Room",
+   "shape": "rect",
+   "wall": "frosted",
+   "traits": [
+    "Frosted glass, chilled air. Legs go early."
+   ],
+   "effects": {
+    "staminaPct": 200
+   }
+  },
+  {
+   "id": "mirror-hall",
+   "name": "Mirror Hall",
+   "shape": "rect",
+   "wall": "mirror",
+   "traits": [
+    "Mirrored walls: keepers lose the ball in the reflections."
+   ],
+   "effects": {
+    "wallShotReflexes": -15,
+    "showboatComposure": 10
+   }
+  },
+  {
+   "id": "the-pit",
+   "name": "The Pit",
+   "shape": "rect",
+   "wall": "glass",
+   "traits": [
+    "Sunken floor; the watchers look down through a glass ceiling. Silent."
+   ],
+   "effects": {
+    "noMomentum": true
+   }
+  },
+  {
+   "id": "rotating-floor",
+   "name": "Rotating Floor",
+   "shape": "rect",
+   "wall": "steel",
+   "traits": [
+    "The floor turns 90° every 10 minutes."
+   ],
+   "effects": {
+    "rotateEverySeconds": 600
+   }
+  }
+ ]
+}

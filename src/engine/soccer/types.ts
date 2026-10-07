@@ -35,6 +35,12 @@ export interface SoccerPlayer {
   /** Hidden, 0–100. */
   ratings: SoccerRatings;
   catchphrase?: string;
+  /** Signature Move id (content/soccer/signatures.json). */
+  signatureId?: string;
+  /** Pair strengths built from events (assists → bonds, duels and fouls → rivalries). */
+  bonds?: Record<string, number>;
+  rivals?: Record<string, number>;
+  awakened?: { seasonId: number; boost: SoccerRatingKey };
 }
 
 export interface SoccerTeam {
@@ -46,6 +52,8 @@ export interface SoccerTeam {
   style: Style;
   /** 8 player ids: the first five are the default starters (K, A, W, W, P), then 3 reserves. */
   squad: string[];
+  /** Home arena (content/soccer/arenas.json). */
+  arenaId?: string;
   /** Drives the fan-base vote budget (S6). */
   fanSize: number;
 }
@@ -89,10 +97,10 @@ export type ShotOutcome = 'goal' | 'saved' | 'wide' | 'blocked' | 'woodwork';
 export type SoccerEvent = SEventBase & (
   | { kind: 'kickoff'; teamId: string }
   | { kind: 'possession'; teamId: string; playerId: string; zone: Zone }
-  | { kind: 'pass'; from: string; to: string; success: boolean; advanced: boolean; interceptorId?: string }
-  | { kind: 'dribble'; playerId: string; defenderId: string; success: boolean }
+  | { kind: 'pass'; from: string; to: string; success: boolean; advanced: boolean; interceptorId?: string; bond?: boolean }
+  | { kind: 'dribble'; playerId: string; defenderId: string; success: boolean; rivals?: boolean }
   | { kind: 'longBall'; from: string; to: string | null; success: boolean }
-  | { kind: 'shot'; playerId: string; assistId?: string; quality: number; outcome: ShotOutcome; keeperId: string; blockerId?: string }
+  | { kind: 'shot'; playerId: string; assistId?: string; quality: number; outcome: ShotOutcome; keeperId: string; blockerId?: string; /** Banked off a wall (wallShot, §B5). */ wall?: 'left' | 'right' }
   | { kind: 'goal'; scorerId: string; assistId?: string; teamId: string }
   | { kind: 'keeperRestart'; teamId: string; keeperId: string }
   // S4: fouls, set pieces, cards, injuries, shootouts.
@@ -111,6 +119,12 @@ export type SoccerEvent = SEventBase & (
       attChoice: 'counter' | 'secure'; defChoice: 'counterPress' | 'retreat'; outcome: 'regained' | 'breakaway' | 'settled' }
   | { kind: 'blockChange'; teamId: string; block: Block }
   | { kind: 'setPieceSetup'; teamId: string; setup: 'wall' | 'man' | 'zonal' }
+  // S4c: walls, arena, personality.
+  | { kind: 'wallPass'; from: string; to: string; wall: 'left' | 'right'; success: boolean }
+  | { kind: 'scramble'; winnerId: string; loserId: string; winnerTeamId: string }
+  | { kind: 'signature'; playerId: string; signatureId: string }
+  | { kind: 'awakening'; playerId: string; teamId: string }
+  | { kind: 'arenaShift'; arenaId: string }
   | { kind: 'halfTime' }
   | { kind: 'fullTime'; winnerId: string | null }
 );
@@ -127,5 +141,8 @@ export interface SoccerResult {
   shootout?: { home: number; away: number; winnerId: string };
   /** Players hurt this match and how many matches they miss. */
   injuries: Record<string, number>;
+  /** Players who Awakened this match (the world applies the change and caps it per season). */
+  awakenings: string[];
+  arenaId: string;
   events: SoccerEvent[];
 }
