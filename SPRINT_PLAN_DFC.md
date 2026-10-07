@@ -46,13 +46,13 @@ Types, generator (8-player squads, drives, styles), possession chains on the 3×
 - [x] Red card measurably reduces that team's goals (aggregate test).
 - [x] Shootout always produces a winner.
 
-## S4b — Phase Engine — ⬜
+## S4b — Phase Engine — ✅
 `phase.ts`, block selection, transitions, route/lane, set-piece setups, phase stats in box score.
 
 **DoD**
-- [ ] Every event has a valid `phase`/`defPhase`; all 10 phases appear in a 100-match sample.
-- [ ] High Block yields more `def`-zone turnovers than Low Block (aggregate).
-- [ ] Calibration still passes.
+- [x] Every event has a valid `phase`/`defPhase`; all 10 phases appear in a 100-match sample.
+- [x] High Block yields more `def`-zone turnovers than Low Block (aggregate).
+- [x] Calibration still passes.
 
 ## S4c — Arena & personality layer — ⬜
 Walls (`wallPass`, `wallShot`, scrambles), signature moves (accumulated fouls, Spot Kicks and power plays already landed in S4), bonds/rivalries, awakening, `arenas.json`.
@@ -144,3 +144,9 @@ Winner-assumption checklist (from grep) and what happened to each:
 - Calibration now also asserts Spot Kicks 0.3–0.8/match (0.71) and reds < 0.15 (0.11).
 - `tests/soccer.setpieces.test.ts`: power-play scoring drop over 3,000 matches, one power play at a time, momentum bounds, injuries leave the floor, shootout-always-has-a-winner property (300 runs).
 - 255 tests pass, lint + typecheck clean. **S4 done.**
+
+### S4b — 2026-10-07
+- `src/engine/soccer/phase.ts`: `phaseOf` (pure), `chooseBlock` (Style weights + late-game score state + optional tactic preference for S6b), `rollTransition` (counter/secure vs counter-press/retreat → regained / breakaway / settled), `chooseSetup` (wall/man/zonal), `phaseStats` (seconds per phase, regains by block, counters launched/scored, set-piece goals), `validPhases`.
+- Engine: block per chain (emits `blockChange`), block effects (High Block: −pass/−dribble in opponent's Build-up, more space behind, ×1.25 stamina drain; Mid Block: `through` passes −, `around` +; Low Block: shot quality −8, more blocked shots, easier build-up), transition mini-resolution on every turnover (`transition` event; breakaways start in Creation with a 2v1 bonus), free-kick setups with shot modifiers, `lane` + `route` + `block` on every event.
+- Retuned chain length (8–16 s start) and foul rates; calibration (1,000 matches): goals 6.3, draws 14%, home 50.5%, shots 21.8/team, 113 chains, Spot Kicks 0.68, reds 0.12.
+- `tests/soccer.phase.test.ts` (8 tests). 263 tests pass, lint + typecheck clean. **S4b done.**

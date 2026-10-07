@@ -1,7 +1,8 @@
 import { createRng, type Rng } from '../core/rng';
 import { selectLineup } from './lineup';
+import { BLOCK_PHASE, chooseBlock, chooseSetup, IN_POSSESSION, laneOfSlot, rollTransition, SETUP_SHOT_BONUS } from './phase';
 import type {
-  Block, Phase, ShotOutcome, SoccerEvent, SoccerFixture, SoccerLeague, SoccerPlayer, SoccerPosition, SoccerRatingKey,
+  Block, Lane, Phase, ShotOutcome, SoccerEvent, SoccerFixture, SoccerLeague, SoccerPlayer, SoccerPosition, SoccerRatingKey,
   SoccerResult, SoccerTeam, Style, Zone,
 } from './types';
 
@@ -9,7 +10,7 @@ import type {
  * Soccer engine (Democracy FC PRD §B5): possession chains on a 3×3 grid inside a walled 5v5 arena.
  * Pure and deterministic — seeded PRNG only, integer math only. Bump on any outcome change.
  */
-export const SOCCER_ENGINE_VERSION = 1;
+export const SOCCER_ENGINE_VERSION = 1; // pre-release: no saved soccer seasons exist yet
 
 export const HALF_SECONDS = 20 * 60;
 const MAX_STEPS = 8;
@@ -58,12 +59,16 @@ const RECEIVERS_BY_ZONE: Record<Zone, SoccerPosition[]> = {
   att: ['P', 'P', 'W', 'W', 'W'],
 };
 
+/** Pass success modifier (per mille) by the defending block and the passer's zone. */
+const PASS_VS_BLOCK: Record<Block, Record<Zone, number>> = {
+  high: { def: -90, mid: 40, att: 0 },
+  mid: { def: 20, mid: 0, att: 0 },
+  low: { def: 60, mid: 60, att: -30 },
+};
+
 const ADVANCE: Record<Zone, Zone> = { def: 'mid', mid: 'att', att: 'att' };
 const MIRROR: Record<Zone, Zone> = { def: 'att', mid: 'mid', att: 'def' };
 
-const IN_POSSESSION: Record<Zone, Phase> = { def: 'buildUp', mid: 'progression', att: 'creation' };
-const BLOCK_OF: Record<Zone, Block> = { def: 'high', mid: 'mid', att: 'low' };
-const BLOCK_PHASE: Record<Block, Phase> = { high: 'highBlock', mid: 'midBlock', low: 'lowBlock' };
 
 interface Side {
   team: SoccerTeam;
@@ -91,6 +96,12 @@ interface MatchState {
   stamina: Record<string, number>;
   /** −10..+10, home perspective (§B5 Momentum). */
   momentum: number;
+  /** Each team's current defensive block (Phase Engine). */
+  blocks: Record<string, Block>;
+  /** Lane of the ball (for the pitch view). */
+  lane: Lane;
+  /** Last free kick's defensive setup. */
+  setup: 'wall' | 'man' | 'zonal' | null;
   injuries: Record<string, number>;
   events: SoccerEvent[];
 }
@@ -141,6 +152,7 @@ type EventInput = SoccerEvent extends infer E ? (E extends SoccerEvent ? Omit<E,
 
 function emit(s: MatchState, attacking: Side, zone: Zone | undefined, e: EventInput) {
   const z = zone ?? 'mid';
+  const block = s.blocks[otherSide(s, attacking).team.id] ?? 'mid';
   s.events.push({
     second: s.second,
     minute: Math.floor(s.second / 60) + 1,
@@ -149,8 +161,10 @@ function emit(s: MatchState, attacking: Side, zone: Zone | undefined, e: EventIn
     possessionTeamId: attacking.team.id,
     zone,
     momentum: s.momentum,
+    lane: s.lane,
+    block,
     phase: e.phase ?? IN_POSSESSION[z],
-    defPhase: e.defPhase ?? BLOCK_PHASE[BLOCK_OF[z]],
+    defPhase: e.defPhase ?? BLOCK_PHASE[block],
     ...e,
   } as SoccerEvent);
 }
@@ -180,7 +194,8 @@ function drainStamina(s: MatchState, seconds: number) {
       if (!id) continue;
       // Keepers barely tire; outfielders lose more the lower their Stamina rating.
       const base = side.five[0] === id ? 1 : 3 + Math.trunc((100 - rating(s, side, id, 'stamina')) / 20);
-      s.stamina[id] = Math.max(0, (s.stamina[id] ?? 100) - Math.trunc((base * seconds) / 25));
+      const press = s.blocks[side.team.id] === 'high' ? 5 : 4; // High Block: ×1.25
+      s.stamina[id] = Math.max(0, (s.stamina[id] ?? 100) - Math.trunc((base * seconds * press) / 100));
     }
     for (const id of side.bench) s.stamina[id] = Math.min(100, (s.stamina[id] ?? 100) + Math.trunc(seconds / 6));
   }
@@ -280,9 +295,9 @@ function kickScores(s: MatchState, att: Side, def: Side, taker: string, base: nu
 
 export const FOUL_RATES = {
   /** Per mille, a beaten defender brings the dribbler down. */
-  beaten: 310,
+  beaten: 350,
   /** Per mille, a winning tackle is a foul anyway. */
-  won: 80,
+  won: 90,
   /** Per mille of fouls in the attacking third that are in the box (penalty). */
   inBox: 70,
   yellow: 90,
@@ -335,6 +350,8 @@ function foul(s: MatchState, att: Side, def: Side, zone: Zone, victim: string, f
   }
   const taker = att.five.includes(victim) ? victim : penaltyTaker(s, att);
   emit(s, att, zone, { kind: 'freeKick', teamId: att.team.id, takerId: taker, phase: 'attSetPiece', defPhase: 'defSetPiece' });
+  s.setup = chooseSetup(s.rng, zone);
+  emit(s, att, zone, { kind: 'setPieceSetup', teamId: def.team.id, setup: s.setup, phase: 'attSetPiece', defPhase: 'defSetPiece' });
   return 'continue';
 }
 
@@ -355,9 +372,11 @@ function shoot(s: MatchState, att: Side, def: Side, shooter: string, zone: Zone,
   quality -= Math.trunc((rating(s, def, defender, 'positioning') - 50) / 4);
   if (p.drive === 'predator') quality += zone === 'att' ? 10 : -10;
   if (p.drive === 'selfish') quality -= 3;
+  const lowBlock = s.blocks[def.team.id] === 'low';
+  if (lowBlock) quality -= 8;
   quality = clamp(quality, 3, 92);
 
-  const blockPm = clamp(110 + (rating(s, def, defender, 'positioning') - 50) * 2 - quality, 40, 260);
+  const blockPm = clamp(110 + (lowBlock ? 50 : 0) + (rating(s, def, defender, 'positioning') - 50) * 2 - quality, 40, 300);
   let outcome: ShotOutcome;
   let blockerId: string | undefined;
   if (s.rng.chance(blockPm)) {
@@ -391,15 +410,49 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
   const attI = start.attacking;
   const defI = 1 - attI;
   let zone = start.zone;
-  let carrier = start.carrier && att.five.includes(start.carrier) ? start.carrier : playerAt(s, att, RECEIVERS_BY_ZONE[zone]);
+  let carrier = '';
+  const hold = (id: string) => {
+    carrier = id;
+    s.lane = laneOfSlot(att.five.indexOf(id));
+  };
+  hold(start.carrier && att.five.includes(start.carrier) ? start.carrier : playerAt(s, att, RECEIVERS_BY_ZONE[zone]));
 
-  if (start.kind === 'kickoff') emit(s, att, zone, { kind: 'kickoff', teamId: att.team.id, phase: 'attSetPiece', defPhase: 'defSetPiece' });
-  else if (start.kind === 'restart') emit(s, att, zone, { kind: 'keeperRestart', teamId: att.team.id, keeperId: att.five[0], phase: 'attSetPiece', defPhase: 'defSetPiece' });
-  else emit(s, att, zone, { kind: 'possession', teamId: att.team.id, playerId: carrier, zone, phase: 'attTransition', defPhase: 'defTransition' });
-  s.second += s.rng.range(6, 14);
+  // The defending block for this chain (Style + score state).
+  const lead = (def.home ? 1 : -1) * (s.score.home - s.score.away);
+  const block = chooseBlock(s.rng, { style: def.team.style, lead, secondsLeft: s.half === 2 ? s.halfEnd - s.second : s.halfEnd - s.second + HALF_SECONDS });
+  if (s.blocks[def.team.id] !== block) {
+    s.blocks[def.team.id] = block;
+    emit(s, att, zone, { kind: 'blockChange', teamId: def.team.id, block });
+  }
 
   let assist: string | undefined;
   let bonus = 0;
+  if (start.kind === 'kickoff') emit(s, att, zone, { kind: 'kickoff', teamId: att.team.id, phase: 'attSetPiece', defPhase: 'defSetPiece' });
+  else if (start.kind === 'restart') emit(s, att, zone, { kind: 'keeperRestart', teamId: att.team.id, keeperId: att.five[0], phase: 'attSetPiece', defPhase: 'defSetPiece' });
+  else {
+    emit(s, att, zone, { kind: 'possession', teamId: att.team.id, playerId: carrier, zone, phase: 'attTransition', defPhase: 'defTransition' });
+    // Transition (§B5a): the winners counter or secure; the losers counter-press or retreat.
+    const presser = playerAt(s, def, DEFENDERS_BY_ZONE[zone]);
+    const t = rollTransition(s.rng, {
+      winnerStyle: att.team.style,
+      loserStyle: def.team.style,
+      loserBlock: s.blocks[def.team.id],
+      pace: rating(s, att, carrier, 'pace'),
+      tackling: rating(s, def, presser, 'tackling'),
+    });
+    emit(s, att, zone, { kind: 'transition', wonBy: att.team.id, lostBy: def.team.id, wonByBlock: s.blocks[att.team.id] ?? 'mid', ...t, phase: 'attTransition', defPhase: 'defTransition' });
+    if (t.outcome === 'regained') {
+      s.second += s.rng.range(2, 5);
+      return { attacking: defI, zone: MIRROR[zone], carrier: presser, kind: 'turnover' };
+    }
+    if (t.outcome === 'breakaway') {
+      // A failed counter-press in 5v5 leaves a 2v1 or a run at the keeper.
+      zone = 'att';
+      bonus = 10;
+    } else if (t.attChoice === 'counter') zone = ADVANCE[zone];
+    else zone = 'def';
+  }
+  s.second += s.rng.range(8, 16);
   for (let step = 0; step < MAX_STEPS; step++) {
     const action = pickAction(s, att, carrier, zone, step);
     s.second += s.rng.range(3, 8);
@@ -409,7 +462,7 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
       const { next } = shoot(s, att, def, carrier, zone, bonus, assist);
       if (next !== 'continue') return next;
       // Rebound: a scramble in the attacking zone, the attackers win it.
-      carrier = playerAt(s, att, RECEIVERS_BY_ZONE.att);
+      hold(playerAt(s, att, RECEIVERS_BY_ZONE.att));
       zone = 'att';
       assist = undefined;
       bonus = 4;
@@ -419,17 +472,19 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
     if (action === 'pass') {
       const atk = Math.trunc((rating(s, att, carrier, 'passing') * 2 + rating(s, att, carrier, 'vision')) / 3);
       const dfn = avg2(s, def, defender, 'positioning', 'tackling');
-      const success = s.rng.chance(clamp(820 + (atk - dfn) * 3 - (zone === 'att' ? 90 : 0), 500, 960));
-      const advancePm = zone === 'def' ? 520 : zone === 'mid' ? 360 : 0;
+      const to0 = playerAt(s, att, RECEIVERS_BY_ZONE[ADVANCE[zone]], carrier);
+      const through = att.five.indexOf(to0) === 4 || att.five.indexOf(to0) === 1;
+      const success = s.rng.chance(clamp(820 + (atk - dfn) * 3 - (zone === 'att' ? 90 : 0) + PASS_VS_BLOCK[block][zone] + (block === 'mid' && zone === 'mid' ? (through ? -60 : 20) : 0), 450, 960));
+      const advancePm = (zone === 'def' ? 520 : zone === 'mid' ? 360 : 0) + (block === 'high' && zone === 'mid' ? 120 : 0);
       const advanced = success && advancePm > 0 && s.rng.chance(advancePm);
       const nextZone = advanced ? ADVANCE[zone] : zone;
-      const to = playerAt(s, att, RECEIVERS_BY_ZONE[nextZone], carrier);
-      emit(s, att, zone, { kind: 'pass', from: carrier, to, success, advanced, interceptorId: success ? undefined : defender, route: advanced ? (to === att.five[4] ? 'through' : 'around') : undefined });
+      const to = advanced ? to0 : playerAt(s, att, RECEIVERS_BY_ZONE[nextZone], carrier);
+      emit(s, att, zone, { kind: 'pass', from: carrier, to, success, advanced, interceptorId: success ? undefined : defender, route: advanced ? (through ? 'through' : 'around') : undefined });
       if (!success) return { attacking: defI, zone: MIRROR[zone], carrier: defender, kind: 'turnover' };
       const conductor = s.league.players[carrier].drive === 'conductor';
       assist = carrier;
       bonus = nextZone === 'att' ? 6 + (conductor ? 6 : 0) + Math.trunc((rating(s, att, carrier, 'vision') - 50) / 8) : 0;
-      carrier = to;
+      hold(to);
       zone = nextZone;
       continue;
     }
@@ -438,16 +493,16 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
       const atk = avg2(s, att, carrier, 'dribbling', 'pace');
       const dfn = avg2(s, def, defender, 'tackling', 'pace');
       const showboat = s.league.players[carrier].drive === 'showboat';
-      const success = s.rng.chance(clamp(560 + (atk - dfn) * 4 + (showboat ? 40 : 0), 250, 860));
+      const success = s.rng.chance(clamp(560 + (atk - dfn) * 4 + (showboat ? 40 : 0) + (block === 'high' && zone === 'def' ? -80 : 0), 250, 860));
       if (s.rng.chance(success ? FOUL_RATES.beaten : FOUL_RATES.won)) {
         const next = foul(s, att, def, zone, carrier, defender);
         if (next !== 'continue') return next;
         if (!att.five.includes(carrier)) carrier = penaltyTaker(s, att);
         // Free kick: in the attacking third the taker may go straight for goal.
         if (zone === 'att' && s.rng.chance(550)) {
-          const shot = shoot(s, att, def, carrier, zone, -10, undefined);
+          const shot = shoot(s, att, def, carrier, zone, -10 + SETUP_SHOT_BONUS[s.setup ?? 'man'], undefined);
           if (shot.next !== 'continue') return shot.next;
-          carrier = playerAt(s, att, RECEIVERS_BY_ZONE.att);
+          hold(playerAt(s, att, RECEIVERS_BY_ZONE.att));
         }
         assist = undefined;
         bonus = 0;
@@ -470,7 +525,7 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
     if (!target) return { attacking: defI, zone: 'def', carrier: aerial, kind: 'turnover' };
     assist = carrier;
     bonus = 2;
-    carrier = target;
+    hold(target);
     zone = 'att';
   }
   return { attacking: defI, zone: MIRROR[zone], kind: 'turnover' };
@@ -540,6 +595,9 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
     halfEnd: HALF_SECONDS + rng.int(3) * 60,
     stamina: {},
     momentum: 0,
+    blocks: {},
+    lane: 'center',
+    setup: null,
     injuries: {},
     events: [],
   };

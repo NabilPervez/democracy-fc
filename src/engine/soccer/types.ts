@@ -80,6 +80,8 @@ interface SEventBase {
   phase: Phase;
   /** Defending-team perspective. */
   defPhase: Phase;
+  /** The defending team's block. */
+  block?: Block;
 }
 
 export type ShotOutcome = 'goal' | 'saved' | 'wide' | 'blocked' | 'woodwork';
@@ -104,6 +106,11 @@ export type SoccerEvent = SEventBase & (
   | { kind: 'injury'; playerId: string; teamId: string; matches: number }
   | { kind: 'shootout'; kicks: { teamId: string; takerId: string; scored: boolean }[]; winnerId: string }
   | { kind: 'sub'; teamId: string; outId: string; inId: string }
+  // S4b: Phase Engine.
+  | { kind: 'transition'; wonBy: string; lostBy: string; wonByBlock: Block;
+      attChoice: 'counter' | 'secure'; defChoice: 'counterPress' | 'retreat'; outcome: 'regained' | 'breakaway' | 'settled' }
+  | { kind: 'blockChange'; teamId: string; block: Block }
+  | { kind: 'setPieceSetup'; teamId: string; setup: 'wall' | 'man' | 'zonal' }
   | { kind: 'halfTime' }
   | { kind: 'fullTime'; winnerId: string | null }
 );
