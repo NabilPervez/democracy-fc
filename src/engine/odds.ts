@@ -37,6 +37,9 @@ export interface Odds {
   /** Payout multipliers in thousandths (1900 = 1.90×), including a 5% house edge. */
   awayMult: number;
   homeMult: number;
+  /** 3-way markets (sports with draws). 0 when draws can't happen. */
+  drawPm: number;
+  drawMult: number;
 }
 
 const HOME_EDGE_PM = 20;
@@ -54,12 +57,23 @@ export const multiplierFor = (pm: number) => Math.floor(950_000 / pm);
 export function gameOdds(away: PublicTeamView, home: PublicTeamView): Odds {
   const homePm = clamp(500 + HOME_EDGE_PM + Math.trunc((strength(home) - strength(away)) / 2), 150, 850);
   const awayPm = 1000 - homePm;
-  return { awayPm, homePm, awayMult: multiplierFor(awayPm), homeMult: multiplierFor(homePm) };
+  return { awayPm, homePm, awayMult: multiplierFor(awayPm), homeMult: multiplierFor(homePm), drawPm: 0, drawMult: 0 };
 }
 
 export function oddsForGame(league: League, game: ScheduledGame, records: Record<string, { wins: number; losses: number }>): Odds {
   const rec = (id: string) => records[id] ?? { wins: 0, losses: 0 };
   return gameOdds(publicTeamView(league, game.awayId, game.day, rec(game.awayId)), publicTeamView(league, game.homeId, game.day, rec(game.homeId)));
+}
+
+/**
+ * Turn 2-way odds into a 3-way market (home / draw / away) for sports with draws: the draw takes
+ * `drawPm`, and home/away share the rest in their original ratio. Integer math; sums to 1000.
+ */
+export function withDraw(odds: Odds, drawPm: number): Odds {
+  const rest = 1000 - drawPm;
+  const homePm = Math.trunc((odds.homePm * rest) / 1000);
+  const awayPm = rest - homePm;
+  return { homePm, awayPm, drawPm, homeMult: multiplierFor(homePm), awayMult: multiplierFor(awayPm), drawMult: multiplierFor(drawPm) };
 }
 
 export const formatMult = (milli: number) => `${(milli / 1000).toFixed(2)}×`;

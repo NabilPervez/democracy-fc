@@ -23,14 +23,14 @@ Create `engine/core`, move baseball under `engine/baseball`, add `SportEngine` +
 - [x] All pre-existing tests pass unchanged (only import paths edited).
 - [x] Determinism test proves baseball output byte-identical to before the move (fixture captured on the pre-move build).
 
-## S2 — Draw support across the shell — ⬜
+## S2 — Draw support across the shell — ✅
 W/D/L standings, points, `winnerId: null`, prediction settlement for draws, digest wording.
 
 **DoD**
-- [ ] Standings rows carry `draws` and `points` (3/1/0 for soccer; baseball ordering unchanged).
-- [ ] Grep checklist of every winner assumption (`winnerId`, `loserId`, `wins/losses`, bet settlement, digest) fixed.
-- [ ] A stub soccer engine returning fixed draws flows through standings, predictions and digest without errors (`tests/draws.test.ts`).
-- [ ] 3-way odds market (`home / draw / away`) in `odds.ts`; 2-way kept for baseball.
+- [x] Standings rows carry `draws` and `points` (3/1/0 for soccer; baseball ordering unchanged).
+- [x] Grep checklist of every winner assumption (`winnerId`, `loserId`, `wins/losses`, bet settlement, digest) fixed.
+- [x] A stub soccer engine returning fixed draws flows through standings, predictions and digest without errors (`tests/draws.test.ts`).
+- [x] 3-way odds market (`home / draw / away`) in `odds.ts`; 2-way kept for baseball.
 
 ## S3 — Soccer engine v1 — ⬜
 Types, generator (8-player squads, drives, styles), possession chains on the 3×3 grid, shots, goals, halves, auto lineup.
@@ -112,3 +112,20 @@ Relabel tabs (Bulletin / Matches / Facility / Vote / Archive), Live Pitch View +
 - `universe.ts`: all three sim call sites go through one `simulate(state, game)` → `getSport(state.sport)`. Worker needs no change (it calls `runCommand`).
 - Save v13 → v14 adds `sport: 'baseball'`. Only test edit beyond import paths: added `sport` to the v6-fixture "new keys" strip list (same pattern every earlier migration used).
 - Result: 236 tests pass, lint + typecheck clean, fingerprint test byte-identical. **S1 done.**
+
+### S2 — 2026-10-07
+Winner-assumption checklist (from grep) and what happened to each:
+| Site | Fix |
+|---|---|
+| `engine/season.ts computeStandings` | `matchWinner()` helper; rows gain `draws`, `points`; sort = points → fewest losses → diff (→ goals for when draws exist). Baseball order provably unchanged (points = 3×wins). |
+| `universe.ts afterGame` (h2h, rivalry, fav bonus, XP) | Draw skips win-only effects; shared tail split into `afterResult` (picks, bailout). |
+| `universe.ts settleBets` | Draw ⇒ team predictions lose; `DRAW_PICK` prediction wins. |
+| `universe.ts currentOdds / offeredMultiplier / betError / betPlaced pm` | 3-way via `odds.withDraw()` when `sport.allowsDraws` (flat 150‰ draw until S3 supplies a real one). |
+| `world/digest.ts` team line | Shows `W–D–L` when there were draws. |
+| `ui/screens/Games.tsx` winner highlight | `matchWinner()`; no highlight on draws. |
+| `universe.ts` playoffs (`series` winners) | Left as is: soccer knockouts end in shootouts (S4), never draws. |
+| `storage/migrate.ts:107` | Shipped migration — never edited. |
+| `narrative/*` `gameEnd.winnerId` | Baseball-only events; soccer gets its own templates (S5). |
+| UI tables (`League.tsx`, `Today.tsx`, `BetPanel.tsx`) | Deferred to S7 UI conversion (D column, Draw button). |
+- `UniverseSettings.sport` (optional, defaults to baseball for now).
+- 241 tests pass, lint + typecheck clean, baseball fingerprints unchanged. **S2 done.**

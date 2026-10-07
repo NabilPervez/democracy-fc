@@ -1,8 +1,8 @@
 import { addLines, boxScore, emptyLine, type BoxScore, type StatLine } from '../engine/baseball/boxScore';
 import { getSport } from '../engine/core/registry';
 import type { SportId } from '../engine/core/sport';
-import { oddsForGame } from '../engine/odds';
-import { computeStandings, generateSchedule } from '../engine/season';
+import { oddsForGame, withDraw, type Odds } from '../engine/odds';
+import { computeStandings, generateSchedule, matchWinner } from '../engine/season';
 import type { GameEnvironment, GameEvent, GameResult, League, RatingKey, ScheduledGame } from '../engine/baseball/types';
 import type { Clock, DayLengthMinutes } from './clock';
 import { applyEffect, marginalCost, openElection, playerVoteTotal, tally, winnerOf, type Election } from './elections';
@@ -30,6 +30,10 @@ export const SAVE_VERSION = 14;
 
 /** Out of coins with nothing riding? The league office tops you back up (once a day). */
 export const BAILOUT_COINS = 100;
+/** A prediction's `teamId` when it backs a draw (3-way markets, Democracy FC S2). */
+export const DRAW_PICK = 'draw';
+/** Flat draw chance (per mille) in 3-way odds until the soccer engine supplies its own (S3). */
+const DRAW_PM = 150;
 /** Bonus every time your favorite team wins. */
 export const FAVORITE_WIN_BONUS = 15;
 /** Favorite team can be chosen or changed until this season ends. */
@@ -61,6 +65,8 @@ export interface UniverseSettings {
   dayLengthMinutes: DayLengthMinutes;
   /** Living mode: % of each day before all games start together (default 25). */
   firstPitchPct?: number;
+  /** Match engine for a new universe (default baseball until the soccer engine ships). */
+  sport?: SportId;
 }
 
 export type TimelineKind = 'election' | 'death' | 'return' | 'weird' | 'champion' | 'retirement' | 'rivalry' | 'relegation' | 'persona';
@@ -273,8 +279,8 @@ export function createUniverse(id: string, settings: UniverseSettings, now: numb
   const league = shapeByAge(generated, ages);
   const base: UniverseState = {
     saveVersion: SAVE_VERSION,
-    sport: 'baseball',
-    engineVersion: getSport('baseball').engineVersion,
+    sport: settings.sport ?? 'baseball',
+    engineVersion: getSport(settings.sport ?? 'baseball').engineVersion,
     id,
     createdAt: now,
     settings,
@@ -349,13 +355,19 @@ export function teamRecords(s: UniverseState): Record<string, { wins: number; lo
 export function currentOdds(s: UniverseState, gameId: string) {
   const game = s.schedule.find((g) => g.id === gameId)!;
   // Odds see the same ratings the game will be played with: traits, perks, stadium, rivalry, patron.
-  return oddsForGame(gameLeague(s, game), game, teamRecords(s));
+  const odds = oddsForGame(gameLeague(s, game), game, teamRecords(s));
+  return getSport(s.sport).allowsDraws ? withDraw(odds, DRAW_PM) : odds;
 }
 
 /** The multiplier this player would get backing `teamId` (after persona perks). */
+/** Public chance (per mille) of one side of a market: home, away or the draw. */
+const pickPm = (odds: Odds, game: ScheduledGame, teamId: string) =>
+  teamId === DRAW_PICK ? odds.drawPm : teamId === game.homeId ? odds.homePm : odds.awayPm;
+
 export function offeredMultiplier(s: UniverseState, gameId: string, teamId: string): number {
   const game = s.schedule.find((g) => g.id === gameId)!;
   const odds = currentOdds(s, gameId);
+  if (teamId === DRAW_PICK) return personaMultiplier(s.persona, odds.drawMult, odds.drawPm);
   const home = teamId === game.homeId;
   return personaMultiplier(s.persona, home ? odds.homeMult : odds.awayMult, home ? odds.homePm : odds.awayPm);
 }
@@ -366,7 +378,8 @@ export function betError(s: UniverseState, gameId: string, teamId: string, amoun
   if (!game) return 'No such game.';
   if (game.day !== s.currentDay) return "You can only bet on today's games.";
   if (s.results[gameId] || s.started.includes(gameId)) return 'Betting is closed — this game has started.';
-  if (teamId !== game.awayId && teamId !== game.homeId) return "That team isn't playing in this game.";
+  const draw = teamId === DRAW_PICK && getSport(s.sport).allowsDraws;
+  if (!draw && teamId !== game.awayId && teamId !== game.homeId) return "That team isn't playing in this game.";
   if (!Number.isInteger(amount) || amount < 1) return 'Bet at least 1 coin.';
   if (amount > s.coins) return 'Not enough coins.';
   if (betsThisSeason(s).some((b) => b.gameId === gameId && b.teamId !== teamId)) return 'You already backed the other team in this game.';
@@ -648,7 +661,8 @@ function withBailout(s: UniverseState): UniverseState {
 
 /** After a game: favorite-team bonus, pick payouts, then the bailout check. */
 function afterGame(s: UniverseState, summary: GameSummary, box: BoxScore): UniverseState {
-  const winnerId = summary.homeScore > summary.awayScore ? summary.homeId : summary.awayId;
+  const winnerId = matchWinner(summary);
+  if (winnerId === null) return afterResult(s, s, summary, box);
   const loserId = winnerId === summary.homeId ? summary.awayId : summary.homeId;
   const h2h = recordWithWin(s.h2h ?? {}, winnerId, loserId);
   let next: UniverseState = { ...s, h2h };
@@ -662,7 +676,12 @@ function afterGame(s: UniverseState, summary: GameSummary, box: BoxScore): Unive
     next = { ...next, coins: next.coins + FAVORITE_WIN_BONUS, ledger: withLedger(next, FAVORITE_WIN_BONUS, `Your ${teamName(next, fav)} won`, summary.day) };
   }
   if (fav && (fav === winnerId || fav === loserId)) next = gainXp(next, fav === winnerId ? 'favoriteWin' : 'favoriteLoss', { home: fav === summary.homeId });
+  return afterResult(s, next, summary, box);
+}
 
+/** The part of afterGame that doesn't depend on who won: picks, then the bailout check. */
+/** `s` is the state before the game (for streak milestones). */
+function afterResult(s: UniverseState, next: UniverseState, summary: GameSummary, box: BoxScore): UniverseState {
   const jinx = next.jinx && next.jinx.season === next.season && summary.day <= next.jinx.untilDay ? next.jinx.playerId : null;
   const lock = next.pickLock?.season === next.season ? next.pickLock : null;
   const settled = settlePicks(next.picks, box, next.league, {
@@ -692,7 +711,7 @@ function afterGame(s: UniverseState, summary: GameSummary, box: BoxScore): Unive
   return withBailout(next);
 }
 
-const teamName = (s: UniverseState, id: string) => s.league.teams.find((t) => t.id === id)?.name ?? id;
+const teamName = (s: UniverseState, id: string) => id === DRAW_PICK ? 'Draw' : s.league.teams.find((t) => t.id === id)?.name ?? id;
 
 const withLedger = (s: UniverseState, amount: number, reason: string, day = s.currentDay): LedgerEntry[] =>
   [...s.ledger, { season: s.season, day, amount, reason }].slice(-LEDGER_KEPT);
@@ -835,7 +854,8 @@ function notesFor(line: StatLine, career: StatLine | undefined): string[] {
 
 function settleBets(state: UniverseState, summary: GameSummary): UniverseState {
   if (!state.bets.some((b) => b.gameId === summary.gameId && b.status === 'open')) return state;
-  const winnerId = summary.homeScore > summary.awayScore ? summary.homeId : summary.awayId;
+  // A draw (soccer) has no winner: every bet on a team loses, a bet on DRAW_PICK wins.
+  const winnerId = matchWinner(summary) ?? DRAW_PICK;
   let next = state;
   const bets = state.bets.map((b): Bet => {
     if (b.gameId !== summary.gameId || b.status !== 'open') return b;
@@ -1135,7 +1155,7 @@ export function reduce(state: UniverseState, event: WorldEvent): UniverseState {
         if (freeBetError(state, gameId, teamId, amount)) return state;
         const game = state.schedule.find((g) => g.id === gameId)!;
         const odds = currentOdds(state, gameId);
-        const pm = teamId === game.homeId ? odds.homePm : odds.awayPm;
+        const pm = pickPm(odds, game, teamId);
         const bet: Bet = { id: `${state.season}-${gameId}-${teamId}-free`, gameId, day: state.currentDay, teamId, amount, multMilli: offeredMultiplier(state, gameId, teamId), pm, free: true, status: 'open', payout: 0, season: state.season };
         return gainXp({ ...state, bets: [...state.bets, bet], perkUses: { ...state.perkUses, freeBet: periodKey(state, 'week') } }, 'betPlaced');
       }
@@ -1143,7 +1163,7 @@ export function reduce(state: UniverseState, event: WorldEvent): UniverseState {
       const multMilli = offeredMultiplier(state, gameId, teamId);
       const game = state.schedule.find((g) => g.id === gameId)!;
       const odds = currentOdds(state, gameId);
-      const pm = teamId === game.homeId ? odds.homePm : odds.awayPm;
+      const pm = pickPm(odds, game, teamId);
       const existing = betsThisSeason(state).find((b) => b.gameId === gameId && b.teamId === teamId && b.status === 'open');
       const bets: Bet[] = existing
         ? state.bets.map((b) =>

@@ -43,16 +43,28 @@ export function generateSchedule(teams: Team[], days: number): ScheduledGame[] {
 export interface StandingRow {
   teamId: string;
   wins: number;
+  draws: number;
   losses: number;
+  /** League points: 3 per win, 1 per draw (Democracy FC S2). */
+  points: number;
   runsFor: number;
   runsAgainst: number;
 }
 
 export type ScoreLine = Pick<GameResult, 'awayId' | 'homeId' | 'awayScore' | 'homeScore'>;
 
+/** Winner of a finished game, or null for a draw. */
+export function matchWinner(r: ScoreLine): string | null {
+  return r.homeScore > r.awayScore ? r.homeId : r.awayScore > r.homeScore ? r.awayId : null;
+}
+
+/**
+ * Sports without draws keep the original order (wins, then fewest losses, then run difference —
+ * points are 3× wins so ranking by points is identical). With draws: points, goal difference, goals for.
+ */
 export function computeStandings(teams: Team[], results: ScoreLine[]): StandingRow[] {
   const rows = new Map<string, StandingRow>(
-    teams.map((t) => [t.id, { teamId: t.id, wins: 0, losses: 0, runsFor: 0, runsAgainst: 0 }]),
+    teams.map((t) => [t.id, { teamId: t.id, wins: 0, draws: 0, losses: 0, points: 0, runsFor: 0, runsAgainst: 0 }]),
   );
   for (const r of results) {
     const away = rows.get(r.awayId)!;
@@ -61,15 +73,21 @@ export function computeStandings(teams: Team[], results: ScoreLine[]): StandingR
     away.runsAgainst += r.homeScore;
     home.runsFor += r.homeScore;
     home.runsAgainst += r.awayScore;
-    if (r.homeScore > r.awayScore) {
-      home.wins++;
-      away.losses++;
+    const winner = matchWinner(r);
+    if (winner === null) {
+      home.draws++;
+      away.draws++;
+      home.points++;
+      away.points++;
     } else {
-      away.wins++;
-      home.losses++;
+      const [w, l] = winner === r.homeId ? [home, away] : [away, home];
+      w.wins++;
+      w.points += 3;
+      l.losses++;
     }
   }
+  const diff = (x: StandingRow) => x.runsFor - x.runsAgainst;
   return [...rows.values()].sort(
-    (a, b) => b.wins - a.wins || a.losses - b.losses || b.runsFor - b.runsAgainst - (a.runsFor - a.runsAgainst),
+    (a, b) => b.points - a.points || a.losses - b.losses || diff(b) - diff(a) || ((a.draws || b.draws) ? b.runsFor - a.runsFor : 0),
   );
 }

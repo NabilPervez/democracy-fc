@@ -1,3 +1,4 @@
+import { matchWinner } from '../engine/season';
 import { MAX_CATCHUP_DAYS } from './clock';
 import { levelOf, PERSONA_DEFS, xpOf } from './persona';
 import { newUnlocks } from './picks';
@@ -91,8 +92,10 @@ export function buildDigest(before: UniverseState, after: UniverseState, events:
   if (fav) {
     const mine = played.filter((g) => g.awayId === fav || g.homeId === fav);
     if (mine.length) {
-      const wins = mine.filter((g) => (g.homeId === fav ? g.homeScore > g.awayScore : g.awayScore > g.homeScore)).length;
-      items.push({ importance: 80, day: after.currentDay - 1, kind: 'team', text: `Your ${teamName(fav)} went ${wins}–${mine.length - wins}.` });
+      const wins = mine.filter((g) => matchWinner(g) === fav).length;
+      const draws = mine.filter((g) => matchWinner(g) === null).length;
+      const record = draws ? `${wins}–${draws}–${mine.length - wins - draws} (W–D–L)` : `${wins}–${mine.length - wins}`;
+      items.push({ importance: 80, day: after.currentDay - 1, kind: 'team', text: `Your ${teamName(fav)} went ${record}.` });
     }
   }
 

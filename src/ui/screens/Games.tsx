@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ScheduledGame } from '../../engine/baseball/types';
 import { betsThisSeason, gamesOn, isSeasonOver, lastScheduledDay, seasonDays, stadiumEnvironment, unplayedToday } from '../../world/universe';
 import { formatMult } from '../../engine/odds';
+import { matchWinner } from '../../engine/season';
 import { BetPanel, MassBet } from '../components/BetPanel';
 import { BaseDiamond, Outs, TeamBadge } from '../components/bits';
 import { useGame } from '../store';
@@ -20,7 +21,7 @@ export function GameCard({ game }: { game: ScheduledGame }) {
   const r = u.results[game.id];
   const today = game.day === u.currentDay;
   const started = u.started.includes(game.id);
-  const winner = r ? (r.homeScore > r.awayScore ? home.id : away.id) : null;
+  const winner = r ? matchWinner(r) : null;
   const row = (team: typeof away, score: number | undefined, side: 'Away' | 'Home') => (
     <div className={`gc-row ${winner === team.id ? 'won' : ''}`}>
       <TeamBadge team={team} size={28} />
