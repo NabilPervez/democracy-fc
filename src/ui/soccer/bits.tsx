@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import type { Phase, SoccerTeam } from '../../engine/soccer/types';
 import { useAssembly } from './store';
+import { HELP } from './help';
 
 export function Crest({ team, size = 28 }: { team: Pick<SoccerTeam, 'abbr' | 'colors' | 'city' | 'name'>; size?: number }) {
   return (
@@ -89,8 +90,10 @@ export function ErrorBanner() {
 export function Coins() {
   const coins = useAssembly((s) => s.u?.coins ?? 0);
   return (
-    <span className="chip" aria-label={`${coins} coins`}>
-      ◈ {coins}
+    <span className="chip coins-chip">
+      <Tip label={`${coins} coins`} text={HELP.coins}>
+        ◈ {coins}
+      </Tip>
     </span>
   );
 }

@@ -9,6 +9,7 @@ import {
   voteError, type SoccerUniverse,
 } from '../../world/soccer/universe';
 import { Crest, DRIVE_INFO, POSITION_LABEL, Stars, Tip } from './bits';
+import { HELP } from './help';
 import { MatchView } from './MatchView';
 import { useAssembly } from './store';
 
@@ -81,7 +82,9 @@ export function Facility() {
   return (
     <section aria-labelledby="facility-h">
       <div className="screen-head hero">
-        <p className="eyebrow">The Assembly · Season {u.season}</p>
+        <p className="eyebrow">
+          The Assembly · Season {u.season} · <Tip label="How the table works" text={HELP.table} />
+        </p>
         <h1 id="facility-h">Facility</h1>
         <p className="muted small">
           The top {playoffSize(u)} reach the playoffs (gold line). Below the red dashed line, clubs are Ejected from the facility at season's end.
@@ -157,7 +160,9 @@ export function Bracket() {
   for (let n = p.seeds.length / 2; n >= 1; n /= 2) sizes.push(n);
   return (
     <>
-      <h2>Playoffs</h2>
+      <h2>
+        <Tip label="Playoffs" text={HELP.bracket} />
+      </h2>
       {p.championId && (
         <div className="card champion" style={{ marginBottom: 10 }}>
           <p className="eyebrow">Champions · Season {u.season}</p>
@@ -222,7 +227,8 @@ function ClubPage({ clubId }: { clubId: string }) {
           {club.city} {club.name}
         </h1>
         <p className="muted">
-          Style: {STYLE_LABEL[club.style]} · Fan base {club.fanSize} · Home arena: {getArena(club.arenaId).name}
+          <Tip label={`Style: ${STYLE_LABEL[club.style]}`} text={HELP.style} /> · <Tip label={`Fan base ${club.fanSize}`} text={HELP.fanBase} /> ·{' '}
+          <Tip label={`Home arena: ${getArena(club.arenaId).name}`} text={`${HELP.arena} ${getArena(club.arenaId).traits[0]}`} />
         </p>
       </div>
       <div className="squad">
@@ -419,7 +425,7 @@ export function VoteScreen() {
         <p className="eyebrow">Facility election · closes after day {e.closesDay}</p>
         <h1 id="vote-h">Vote</h1>
         <p className="muted small">
-          Every club's fans vote for what helps their club. Your votes join the {mine.team.name} bloc. Votes cost 2×n² coins{u.persona === 'organizer' ? ' (20% off: Organizer)' : ''}.
+          Every club's fans vote for what helps their club. Your votes join the {mine.team.name} bloc. <Tip label="Votes cost 2×n² coins" text={HELP.voteCost} />{u.persona === 'organizer' ? ' (20% off: Organizer)' : ''}.
         </p>
       </div>
       <label className="small muted" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -439,7 +445,9 @@ export function VoteScreen() {
             <div key={p.id} className="card proposal">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
                 <h3>{p.title}</h3>
-                <span className={`badge ${tag}`}>{tag === 'helps' ? 'Helps your club' : tag === 'hurts' ? 'Hurts your club' : 'Neutral for you'}</span>
+                <Tip label={tag === 'helps' ? 'Helps your club' : tag === 'hurts' ? 'Hurts your club' : 'Neutral for you'} text={HELP.helpsHurts}>
+                  <span className={`badge ${tag}`}>{tag === 'helps' ? 'Helps your club' : tag === 'hurts' ? 'Hurts your club' : 'Neutral for you'}</span>
+                </Tip>
               </div>
               <p className="muted small" style={{ margin: 0 }}>
                 {p.description}
@@ -449,7 +457,7 @@ export function VoteScreen() {
                 <span style={{ width: `${share}%`, background: 'var(--accent)' }} />
               </div>
               <p className="coalition" style={{ margin: 0 }}>
-                {share}% · Backed by {c.clubs.length ? c.clubs.map((id) => clubOf(u, id)?.name).join(', ') : 'no clubs'}
+                <Tip label={`${share}%`} text={HELP.coalition} /> · Backed by {c.clubs.length ? c.clubs.map((id) => clubOf(u, id)?.name).join(', ') : 'no clubs'}
                 {c.factions.length ? ` + ${c.factions.map((id) => u.factions.find((f) => f.id === id)?.name).join(', ')}` : ''}
               </p>
               <div className="vote-buy">
@@ -487,7 +495,9 @@ export function Archive() {
           </li>
         ))}
       </ul>
-      <h2>Sub-Level Archive</h2>
+      <h2>
+        <Tip label="Sub-Level Archive" text={HELP.subLevels} />
+      </h2>
       {!u.vanished.length && <p className="muted">Nobody has been taken to the Sub-Levels. Yet.</p>}
       <div style={{ display: 'grid', gap: 8 }}>
         {u.vanished.map((v) => (
@@ -511,7 +521,9 @@ export function Archive() {
       </ul>
       {u.awakenings.length > 0 && (
         <>
-          <h2>Awakenings</h2>
+          <h2>
+            <Tip label="Awakenings" text={HELP.awakening} />
+          </h2>
           <ul className="feed">
             {u.awakenings.map((a) => (
               <li key={a.playerId + a.season} className="feed-item">

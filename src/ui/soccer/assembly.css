@@ -233,3 +233,21 @@
 .dfc .brand span, .dfc .brand-mini span { color: var(--gold); text-shadow: 0 1px 0 rgba(27, 31, 42, 0.25); }
 .lean-bar.fans > span { background: var(--primary); }
 .arena-log .tag { background: color-mix(in srgb, var(--c) 10%, transparent); }
+
+/* Getting-started checklist */
+.checklist { padding: 14px; margin: 12px 0; border-color: var(--primary); display: grid; gap: 10px; }
+.checklist-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.checklist-head .eyebrow { margin: 0; }
+.checklist-bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.checklist-bar span { display: block; height: 100%; background: var(--primary); transition: width 0.3s; }
+.checklist ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.checklist li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; }
+.checklist li.done { opacity: 0.6; }
+.checklist li.done .tip-btn { text-decoration: line-through; }
+.checklist li { min-height: 36px; }
+.checklist .chip { min-height: 32px; padding: 0 10px; font-size: 0.8rem; }
+.checklist .check { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--primary); display: grid; place-items: center; color: var(--on-primary); font-size: 0.75rem; font-weight: 700; }
+.checklist li.done .check { background: var(--primary); }
+.checklist .btn.primary { margin-top: 0; }
+.coins-chip .tip-q { display: none; }
+.coins-chip .tip-bubble { left: auto; right: 0; }

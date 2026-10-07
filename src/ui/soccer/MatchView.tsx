@@ -5,7 +5,8 @@ import { narrateSoccerMatch } from '../../narrative/soccer';
 import { recapLines } from '../../world/soccer/recap';
 import { clubOf } from '../../world/soccer/universe';
 import { chainStart, mmss, pitchStateAt } from '../pitch/pitchState';
-import { PHASE_LABEL } from './bits';
+import { PHASE_LABEL, Tip } from './bits';
+import { HELP } from './help';
 import { OPP_COLOR, PitchView, VIEW_COLOR } from './PitchView';
 import { useAssembly, type Speed } from './store';
 
@@ -214,9 +215,7 @@ export function MatchView({ gameId }: { gameId: string }) {
         <div className="clock">
           {atEnd ? (r?.shootout ? `FT · pens ${r.shootout.home}–${r.shootout.away}` : 'FT') : frame.clock}
           <br />
-          <span>
-            Fouls {fouls(left.id)} · {fouls(right.id)}
-          </span>
+          <Tip label={`Fouls ${fouls(left.id)} · ${fouls(right.id)}`} text={HELP.fouls} />
         </div>
       </div>
 
@@ -255,9 +254,12 @@ export function MatchView({ gameId }: { gameId: string }) {
           Restart
         </button>
         <span className="poss">
-          Possession {possessionOf[line.index]} of {finished ? possessionOf[events.length - 1] : '…'}
+          <Tip label={`Possession ${possessionOf[line.index]} of ${finished ? possessionOf[events.length - 1] : '…'}`} text={HELP.possession} />
         </span>
       </div>
+      <p className="small muted" style={{ margin: 0 }}>
+        <Tip label="What are these?" text={HELP.phases} /> <Tip label="Speeds" text={HELP.speed} /> <Tip label={`Momentum ${frame.momentum === 0 ? 'even' : frame.momentum > 0 ? home.abbr : away.abbr}`} text={HELP.momentum} />
+      </p>
       <div className="speed-row" role="group" aria-label="Speed">
         {SPEEDS.map((s) => (
           <button key={s.id} className="chip" aria-pressed={speed === s.id} onClick={() => setSpeed(s.id)}>

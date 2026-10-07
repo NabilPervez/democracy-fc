@@ -254,3 +254,8 @@ Direction from the owner (2026-10-07): Democracy FC is a new product; legacy bas
 - Saturated, bright jewel tones: **emerald** #0E9F6E (primary, buttons, goals), **topaz gold** #F5B800 (your club on the pitch, brand), **sapphire** #2563EB (the Director / facility), **amethyst** #7C3AED (the opponent), **ruby** #E11D48 (fouls, warnings), amber for set pieces.
 - Arena redrawn for light: pale pitch-green floor, slate walls, dark ink lines and labels; token letters switch ink per team for contrast; defensive shapes stagger A/P so tokens don't stack.
 - `color-scheme: light`, theme colour, manifest, splash screens, share image and install screenshots regenerated.
+
+## S12 — Learn by playing: tooltips everywhere + getting-started checklist — ✅
+- **Getting started checklist** on the Bulletin (top, until done or hidden): vote a tactic, vote a captain, make a prediction, watch a match, back a player, fade a player, vote in a facility election. Each step ticks itself off from the save (`world/soccer/checklist.ts`), has a "?" explaining why and a **Show me** button that jumps to the right place. Finishing all seven pays **50 coins** (once); "Hide" dismisses it.
+- **Tooltips throughout** (`ui/soccer/help.ts`, one source of wording): coins, The Director, Matchday Ballot, tactic, scouting, captain, prediction odds and rewards, extra markets, picks, facility election, helps/hurts, coalition shares, vote pricing, the table's playoff and Ejection lines, Style, fan base, home arena, playoff bracket, fouls and Spot Kicks, possessions, phases of play, speeds, momentum, the Sub-Level Archive, Awakenings, personas — on top of the star-group, Drive, stat and table-column tips from S10.
+- `tests/checklist.test.ts`. 88 tests pass.

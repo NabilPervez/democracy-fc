@@ -6,7 +6,8 @@ import { generateSoccerLeague } from '../../world/soccer/generate';
 import { DEFAULT_DAY_MINUTES, GAME_LENGTHS, PLAYOFF_SIZES, roundsFor, SEASON_LENGTHS, SOCCER_LEAGUE_SIZES, type SeasonLength, type SoccerSettings } from '../../world/soccer/universe';
 import type { Chaos } from '../../world/soccer/weird';
 import { Bulletin } from './Bulletin';
-import { Coins, Crest, ErrorBanner, useNow } from './bits';
+import { Coins, Crest, ErrorBanner, Tip, useNow } from './bits';
+import { HELP } from './help';
 import { Archive, Facility, Matches, VoteScreen } from './Screens';
 import { useAssembly, type SoccerTab } from './store';
 
@@ -199,7 +200,9 @@ function Settings() {
           ))}
         </fieldset>
       )}
-      <h2>Your persona</h2>
+      <h2>
+        <Tip label="Your persona" text={HELP.persona} />
+      </h2>
       <PersonaPicker value={u.persona} onChange={(p) => void dispatch({ type: 'personaChosen', persona: p })} />
       <h2>Backup</h2>
       <p className="muted small">Everything lives on this device only. Save a backup file to move or protect your universe.</p>

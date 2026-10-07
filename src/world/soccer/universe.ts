@@ -21,6 +21,7 @@ import {
 import type { MatchRules } from '../../engine/soccer/game';
 import type { Clock } from '../clock';
 import { personaReward, personaVoteCost, type PersonaId } from './persona';
+import { CHECKLIST_REWARD, checklistDone } from './checklist';
 import { getTactic } from '../../engine/soccer/tactics';
 import { phaseStats } from '../../engine/soccer/phase';
 import {
@@ -204,6 +205,8 @@ export interface SoccerUniverse {
   picks: { back: string[]; fade: string[] };
   /** Coins earned from picks, ever. */
   picksLifetime: number;
+  /** The getting-started checklist reward has been claimed (or the checklist dismissed). */
+  checklistClaimed?: boolean;
 }
 
 export const BACK_SLOTS = 3;
@@ -238,6 +241,8 @@ export type SoccerWorldEvent =
   | { type: 'ballotVote'; gameId: string; question: BallotQuestion; option: number; count: number }
   | { type: 'personaChosen'; persona: PersonaId }
   | { type: 'pickSet'; playerId: string; kind: 'back' | 'fade' | null }
+  | { type: 'checklistClaimed' }
+  | { type: 'checklistDismissed' }
   | { type: 'timeSettingsChanged'; timeMode: 'manual' | 'living'; dayLengthMinutes: number; nowMs: number }
   | { type: 'clockSet'; clock: Clock }
   | { type: 'dayEnded'; day: number };
@@ -741,6 +746,13 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
 
     case 'personaChosen':
       return { ...state, persona: event.persona };
+
+    case 'checklistClaimed':
+      if (state.checklistClaimed || !checklistDone(state)) return state;
+      return { ...state, checklistClaimed: true, coins: state.coins + CHECKLIST_REWARD, ledger: withLedger(state, CHECKLIST_REWARD, 'Getting started: all done') };
+
+    case 'checklistDismissed':
+      return { ...state, checklistClaimed: true };
 
     case 'pickSet': {
       if (event.kind && pickError(state, event.playerId, event.kind)) return state;

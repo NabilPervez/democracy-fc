@@ -6,7 +6,9 @@ import {
   ballotError, betError, clubOf, currentElection, DRAW_PICK, fixturesOn, matchBallot, matchOdds, predictionLabel, regularDays, sideOdds,
   sidePredictionError, soccerStandings, TOTAL_LINE, unplayedToday, type SideMarket, type SoccerUniverse,
 } from '../../world/soccer/universe';
-import { Crest, DRIVE_INFO, POSITION_LABEL, useNow } from './bits';
+import { Crest, DRIVE_INFO, POSITION_LABEL, Tip, useNow } from './bits';
+import { HELP } from './help';
+import { CHECKLIST_REWARD, gettingStarted } from '../../world/soccer/checklist';
 import { formatDuration, msUntilNextDay } from '../../world/clock';
 import { leanAsSeen, personaDef } from '../../world/soccer/persona';
 import { facilityEventsFor } from '../../world/soccer/weird';
@@ -46,10 +48,11 @@ export function Bulletin() {
       </div>
 
       <Digest />
+      <Checklist />
 
       {director && (
         <div className="card director-card">
-          <p className="eyebrow">The Director</p>
+          <p className="eyebrow"><Tip label="The Director" text={HELP.director} /></p>
           <p className="director">{director.text}</p>
         </div>
       )}
@@ -99,7 +102,7 @@ export function Bulletin() {
 
       {election && (
         <div className="card" style={{ padding: 14, marginTop: 16 }}>
-          <p className="eyebrow">Facility election</p>
+          <p className="eyebrow"><Tip label="Facility election" text={HELP.election} /></p>
           <p style={{ margin: '0 0 8px' }}>
             {election.proposals.length} proposals on the ballot. Voting closes after matchday {election.closesDay}.
           </p>
@@ -174,7 +177,9 @@ function Picks() {
   const ids = [...u.picks.back.map((id) => ['back', id] as const), ...u.picks.fade.map((id) => ['fade', id] as const)].filter(([, id]) => u.league.players[id]);
   return (
     <div className="card" style={{ padding: 14, marginTop: 12 }}>
-      <p className="eyebrow">Your picks · {u.picksLifetime} coins earned</p>
+      <p className="eyebrow">
+        <Tip label="Your picks" text={HELP.picks} /> · {u.picksLifetime} coins earned
+      </p>
       {ids.length ? (
         <ul className="feed" style={{ margin: 0 }}>
           {ids.map(([kind, id]) => {
@@ -197,6 +202,54 @@ function Picks() {
         <p className="muted small" style={{ margin: 0 }}>Back players to earn when they score or keep clean sheets; fade players to earn when they flop. Open any player card in Facility.</p>
       )}
       {last && <p className="small muted" style={{ margin: '8px 0 0' }}>Last payout: {last.reason.replace('Picks: ', '')}</p>}
+    </div>
+  );
+}
+
+/** "Before your first few games": a self-ticking checklist for fans who skipped the intro. */
+function Checklist() {
+  const u = useAssembly((s) => s.u)!;
+  const { dispatch, setTab, showDetail } = useAssembly();
+  if (u.checklistClaimed) return null;
+  const steps = gettingStarted(u);
+  const done = steps.filter((s) => s.done).length;
+  const all = done === steps.length;
+  const showMe = (tab: (typeof steps)[number]['tab'], id: string) => {
+    if (tab === 'facility' && (id === 'back' || id === 'fade')) return showDetail({ kind: 'club', id: id === 'back' ? u.favoriteClubId : u.league.teams.find((t) => t.id !== u.favoriteClubId)!.id });
+    if (tab === 'bulletin') return document.getElementById('ballot-h')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTab(tab);
+  };
+  return (
+    <div className="card checklist" role="region" aria-labelledby="checklist-h">
+      <div className="checklist-head">
+        <p className="eyebrow" id="checklist-h">
+          <Tip label="Getting started" text={HELP.checklist} /> · {done}/{steps.length}
+        </p>
+        <button className="link-btn small" onClick={() => void dispatch({ type: 'checklistDismissed' })}>
+          Hide
+        </button>
+      </div>
+      <div className="checklist-bar" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={done}>
+        <span style={{ width: `${(done * 100) / steps.length}%` }} />
+      </div>
+      <ul>
+        {steps.map((s) => (
+          <li key={s.id} className={s.done ? 'done' : ''}>
+            <span className="check" aria-hidden="true">{s.done ? '✓' : ''}</span>
+            <Tip label={s.title} text={s.why} />
+            {!s.done && (
+              <button className="chip" onClick={() => showMe(s.tab, s.id)} aria-label={`Show me: ${s.title}`}>
+                Show me
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {all && (
+        <button className="btn primary" onClick={() => void dispatch({ type: 'checklistClaimed' })}>
+          All done — claim {CHECKLIST_REWARD} coins
+        </button>
+      )}
     </div>
   );
 }
@@ -232,7 +285,9 @@ function MatchdayBallot({ gameId }: { gameId: string }) {
   return (
     <div className="card ballot" style={{ marginTop: 12 }} aria-labelledby="ballot-h">
       <div>
-        <p className="eyebrow">Matchday Ballot · closes at kickoff</p>
+        <p className="eyebrow">
+          <Tip label="Matchday Ballot" text={HELP.ballot} /> · closes at kickoff
+        </p>
         <h2 id="ballot-h" style={{ margin: 0, color: 'var(--text)' }}>
           vs <Crest team={opp} size={22} /> {opp.city} {opp.name}
         </h2>
@@ -247,9 +302,9 @@ function MatchdayBallot({ gameId }: { gameId: string }) {
       </div>
 
       <div>
-        <h3>1 · Tactic</h3>
+        <h3>1 · <Tip label="Tactic" text={HELP.tactic} /></h3>
         <p className="muted small" style={{ margin: '0 0 6px' }}>
-          Scouting: {opp.name} fans lean {u.persona === 'analyst' ? '' : '~'}{leanAsSeen(u.persona, oppBallot.lean[oppTop])}% {getTactic(oppBallot.options.tactics[oppTop])?.name}.
+          <Tip label="Scouting" text={HELP.scouting} />: {opp.name} fans lean {u.persona === 'analyst' ? '' : '~'}{leanAsSeen(u.persona, oppBallot.lean[oppTop])}% {getTactic(oppBallot.options.tactics[oppTop])?.name}.
         </p>
         <div className="ballot-options">
           {ballot.options.tactics.map((id, i) => {
@@ -278,7 +333,7 @@ function MatchdayBallot({ gameId }: { gameId: string }) {
       </div>
 
       <div>
-        <h3>2 · Armband</h3>
+        <h3>2 · <Tip label="Armband (captain)" text={HELP.captain} /></h3>
         <div className="ballot-options">
           {ballot.options.captains.map((id, i) => {
             const p = u.league.players[id];
@@ -339,7 +394,7 @@ function Prediction({ gameId }: { gameId: string }) {
   ];
   return (
     <div>
-      <h3>3 · Prediction</h3>
+      <h3>3 · <Tip label="Prediction" text={HELP.prediction} /></h3>
       <p className="muted small" style={{ margin: '0 0 6px' }}>
         Coins are earned, never bought.{' '}
         {existing.length ? `You predicted: ${existing.map((b) => `${b.teamId === DRAW_PICK ? 'a draw' : predictionLabel(u, b)} (${b.amount}◈)`).join(', ')}.` : ''}
@@ -364,6 +419,7 @@ function Prediction({ gameId }: { gameId: string }) {
       </div>
       <details style={{ marginTop: 10 }}>
         <summary className="small">More predictions</summary>
+        <p className="small muted" style={{ margin: '6px 0 0' }}>{HELP.morePredictions}</p>
         <p className="small muted" style={{ margin: '8px 0 4px' }}>Both teams score?</p>
         <div className="predict-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
           {sideButton('btts', 'yes', 'Yes', side.btts.yes)}
