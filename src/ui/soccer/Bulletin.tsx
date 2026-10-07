@@ -6,7 +6,10 @@ import {
   ballotError, betError, clubOf, currentElection, DRAW_PICK, fixturesOn, matchBallot, matchOdds, predictionLabel, regularDays, sideOdds,
   sidePredictionError, soccerStandings, TOTAL_LINE, unplayedToday, type SideMarket, type SoccerUniverse,
 } from '../../world/soccer/universe';
-import { Crest, DRIVE_INFO, POSITION_LABEL } from './bits';
+import { Crest, DRIVE_INFO, POSITION_LABEL, useNow } from './bits';
+import { formatDuration, msUntilNextDay } from '../../world/clock';
+import { leanAsSeen, personaDef } from '../../world/soccer/persona';
+import { facilityEventsFor } from '../../world/soccer/weird';
 import { useAssembly } from './store';
 
 function myMatchToday(u: SoccerUniverse) {
@@ -24,6 +27,9 @@ export function Bulletin() {
   const table = soccerStandings(u);
   const rank = table.findIndex((r) => r.teamId === club.id) + 1;
   const left = unplayedToday(u).length;
+  const now = useNow();
+  const toKickoff = u.clock ? msUntilNextDay(u.clock, u.settings.dayLengthMinutes, u.dayCount, now) : null;
+  const persona = personaDef(u.persona);
 
   return (
     <section aria-labelledby="bulletin-h">
@@ -35,8 +41,11 @@ export function Bulletin() {
         <p className="muted">
           You support the <strong>{club.city} {club.name}</strong>
           {u.phase !== 'offseason' && rank && Object.keys(u.results).length ? ` · ${ordinal(rank)} of ${table.length}` : ''}.
+          {persona && <> {persona.icon} {persona.name}.</>}
         </p>
       </div>
+
+      <Digest />
 
       {director && (
         <div className="card director-card">
@@ -45,7 +54,13 @@ export function Bulletin() {
         </div>
       )}
 
+      {game && open && toKickoff !== null && (
+        <p className="countdown-chip" role="status" style={{ margin: '12px 0 0' }}>
+          ⏱ Ballot closes at kickoff, in {formatDuration(toKickoff)}.
+        </p>
+      )}
       {game && open && <MatchdayBallot gameId={game.id} />}
+      {u.persona === 'prophet' && <Rumours />}
       {game && !open && (
         <div className="card" style={{ padding: 14, marginTop: 12 }}>
           <p className="eyebrow">Your match today</p>
@@ -105,6 +120,50 @@ export function Bulletin() {
   );
 }
 
+function Digest() {
+  const digest = useAssembly((s) => s.digest);
+  const { dismissDigest } = useAssembly();
+  if (!digest || !digest.items.length) return null;
+  return (
+    <div className="card director-card" style={{ marginBottom: 12 }} role="region" aria-labelledby="wywg-h">
+      <p className="eyebrow" id="wywg-h">
+        While you were gone · {digest.days} day{digest.days === 1 ? '' : 's'}
+      </p>
+      <ul className="feed" style={{ margin: '4px 0 8px' }}>
+        {digest.items.slice(0, 8).map((i, k) => (
+          <li key={k} className={`feed-item ${i.kind === 'director' ? 'director' : ''}`}>
+            {i.text}
+          </li>
+        ))}
+      </ul>
+      <button className="chip" onClick={dismissDigest}>
+        Got it
+      </button>
+    </div>
+  );
+}
+
+/** The Prophet hears tomorrow's facility events a day early. */
+function Rumours() {
+  const u = useAssembly((s) => s.u)!;
+  const tomorrow = fixturesOn(u, u.currentDay + 1);
+  const rumours = tomorrow.flatMap((g) => facilityEventsFor(u.settings.seed, u.season, g, u.settings.chaos, u.league).events.map((e) => ({ g, e })));
+  return (
+    <div className="card" style={{ padding: 14, marginTop: 12 }}>
+      <p className="eyebrow">◎ Dorm rumours (Prophet)</p>
+      {rumours.length ? (
+        rumours.map(({ g, e }) => (
+          <p key={g.id + e.eventId} className="director" style={{ marginBottom: 6 }}>
+            {clubOf(u, g.homeId)?.name} v {clubOf(u, g.awayId)?.name}: {e.text}
+          </p>
+        ))
+      ) : (
+        <p className="muted small" style={{ margin: 0 }}>The corridors are quiet about tomorrow.</p>
+      )}
+    </div>
+  );
+}
+
 const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
 
 /** §B7a: Tactic + Armband + Prediction, one screen, all optional. */
@@ -120,6 +179,11 @@ function MatchdayBallot({ gameId }: { gameId: string }) {
   const my = u.ballots[gameId] ?? { tactic: [0, 0, 0], captain: [0, 0, 0], coinsSpent: 0 };
   const oppTop = oppBallot.lean.indexOf(Math.max(...oppBallot.lean));
   const total = (q: number[]) => q.reduce((a, b) => a + b, 0);
+  // §B4: rivals facing each other get a pre-match Director callout.
+  const rivalry = clubOf(u, mine)!.squad.flatMap((id) => {
+    const p = u.league.players[id];
+    return Object.entries(p?.rivals ?? {}).filter(([other, n]) => n >= 3 && opp.squad.includes(other)).map(([other]) => [p.name, u.league.players[other]?.name] as const);
+  })[0];
 
   const vote = (question: 'tactic' | 'captain', option: number) => void dispatch({ type: 'ballotVote', gameId, question, option, count: 1 });
   const nextCost = (question: 'tactic' | 'captain') => ballotVoteCost(my[question], 1);
@@ -138,12 +202,17 @@ function MatchdayBallot({ gameId }: { gameId: string }) {
         <p className="muted small" style={{ margin: '4px 0 0' }}>
           Skip it and the {clubOf(u, mine)!.name} fans decide without you.
         </p>
+        {rivalry && (
+          <p className="director" style={{ marginTop: 8 }}>
+            Director: {rivalry[0]} and {rivalry[1]} meet again. The facility is watching.
+          </p>
+        )}
       </div>
 
       <div>
         <h3>1 · Tactic</h3>
         <p className="muted small" style={{ margin: '0 0 6px' }}>
-          Scouting: {opp.name} fans lean {oppBallot.lean[oppTop]}% {getTactic(oppBallot.options.tactics[oppTop])?.name}.
+          Scouting: {opp.name} fans lean {u.persona === 'analyst' ? '' : '~'}{leanAsSeen(u.persona, oppBallot.lean[oppTop])}% {getTactic(oppBallot.options.tactics[oppTop])?.name}.
         </p>
         <div className="ballot-options">
           {ballot.options.tactics.map((id, i) => {

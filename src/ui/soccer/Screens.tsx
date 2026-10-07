@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { getArena, getSignature } from '../../engine/soccer/arenas';
 import { soccerStars } from '../../engine/soccer/sport';
 import type { SoccerPlayer, SoccerStarGroup } from '../../engine/soccer/types';
-import { averageStars, benefit, clubView, coalitions, electionTotals, soccerVotesCost } from '../../world/soccer/elections';
+import { averageStars, benefit, clubView, coalitions, electionTotals } from '../../world/soccer/elections';
 import { soccerMod } from '../../world/soccer/weird';
 import {
-  clubOf, currentElection, fixturesOn, isKnockout, soccerStandings, voteError, type SoccerUniverse,
+  clubOf, currentElection, electionVoteCost, fixturesOn, isKnockout, soccerStandings, voteError, type SoccerUniverse,
 } from '../../world/soccer/universe';
 import { Crest, DRIVE_INFO, POSITION_LABEL, Stars } from './bits';
 import { MatchView } from './MatchView';
@@ -300,7 +300,7 @@ export function VoteScreen() {
         <p className="eyebrow">Facility election · closes after day {e.closesDay}</p>
         <h1 id="vote-h">Vote</h1>
         <p className="muted small">
-          Every club's fans vote for what helps their club. Your votes join the {mine.team.name} bloc. Votes cost 2×n² coins.
+          Every club's fans vote for what helps their club. Your votes join the {mine.team.name} bloc. Votes cost 2×n² coins{u.persona === 'organizer' ? ' (20% off: Organizer)' : ''}.
         </p>
       </div>
       <label className="small muted" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -312,7 +312,7 @@ export function VoteScreen() {
           const b = benefit(mine, p, avg);
           const tag = b >= 5 ? 'helps' : b <= -5 ? 'hurts' : 'neutral';
           const have = e.playerVotes[i];
-          const cost = soccerVotesCost(have + count) - soccerVotesCost(have);
+          const cost = electionVoteCost(u, have, count);
           const err = voteError(u, e.id, i, count);
           const c = coal[i];
           const share = Math.round((totals[i] * 100) / sum);

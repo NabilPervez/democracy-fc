@@ -1,10 +1,12 @@
 import Dexie, { type Table } from 'dexie';
-import type { GameEvent } from '../engine/baseball/types';
-import { isSeasonOver, PBP_DAYS_KEPT, type CommandResult, type UniverseState, type WorldEvent } from '../world/universe';
-import { migrateSave } from './migrate';
-import { perkValue } from '../world/persona';
+import type { SoccerEvent } from '../engine/soccer/types';
+import { PBP_DAYS_KEPT, SOCCER_SAVE_VERSION, type SoccerCommandResult, type SoccerUniverse, type SoccerWorldEvent } from '../world/soccer/universe';
 import { gamesToPrune, snapshotsToPrune, type SnapshotRef } from './retention';
-import type { SoccerUniverse } from '../world/soccer/universe';
+
+/**
+ * Local-first saves (IndexedDB). The current state is the atomic save; world events are the
+ * history; snapshots are taken at day boundaries; play-by-play is kept for recent days.
+ */
 
 export interface UniverseRow {
   id: string;
@@ -13,16 +15,14 @@ export interface UniverseRow {
   season: number;
   currentDay: number;
   updatedAt: number;
-  /** Which game this save plays (missing on Blastball saves = baseball). */
-  sport?: 'baseball' | 'soccer';
-  /** Current state — the atomic save. Snapshots are the history. */
-  state: UniverseState | SoccerUniverse;
+  state: SoccerUniverse;
 }
 
-export interface SnapshotRow extends SnapshotRef {
+export interface SnapshotRow extends Omit<SnapshotRef, 'id'> {
+  id?: number;
   universeId: string;
   createdAt: number;
-  state: UniverseState | SoccerUniverse;
+  state: SoccerUniverse;
 }
 
 export interface GameRow {
@@ -31,10 +31,7 @@ export interface GameRow {
   gameId: string;
   day: number;
   pinned: boolean;
-  /** Engine that simmed it; missing on rows saved before Sprint 12 (engine v2 or older). */
-  engineVersion?: number;
-  /** Baseball GameEvents or soccer SoccerEvents, by the universe's sport. */
-  events: GameEvent[];
+  events: SoccerEvent[];
 }
 
 export interface WorldEventRow {
@@ -42,7 +39,7 @@ export interface WorldEventRow {
   universeId: string;
   season: number;
   day: number;
-  event: WorldEvent;
+  event: SoccerWorldEvent;
 }
 
 export interface SettingRow {
@@ -50,14 +47,14 @@ export interface SettingRow {
   value: unknown;
 }
 
-export class BlastballDB extends Dexie {
+export class AssemblyDB extends Dexie {
   universes!: Table<UniverseRow, string>;
   snapshots!: Table<SnapshotRow, number>;
   games!: Table<GameRow, [string, number, string]>;
   worldEvents!: Table<WorldEventRow, number>;
   settings!: Table<SettingRow, string>;
 
-  constructor(name = 'blastball') {
+  constructor(name = 'democracy-fc') {
     super(name);
     this.version(1).stores({
       universes: 'id, updatedAt',
@@ -69,11 +66,10 @@ export class BlastballDB extends Dexie {
   }
 }
 
-export const db = new BlastballDB();
+export const db = new AssemblyDB();
 
-const rowFor = (state: UniverseState, now: number): UniverseRow => ({
+const rowFor = (state: SoccerUniverse, now: number): UniverseRow => ({
   id: state.id,
-  sport: 'baseball',
   name: state.settings.name,
   seed: state.settings.seed,
   season: state.season,
@@ -87,35 +83,29 @@ export type UniverseMeta = Omit<UniverseRow, 'state'>;
 export async function listUniverses(d = db): Promise<UniverseMeta[]> {
   const rows = await d.universes.orderBy('updatedAt').reverse().toArray();
   return rows.map((row) => {
-    const meta: Partial<UniverseRow> = { ...row, sport: row.sport ?? (row.state.sport === 'soccer' ? 'soccer' : 'baseball') };
+    const meta: Partial<UniverseRow> = { ...row };
     delete meta.state;
     return meta as UniverseMeta;
   });
 }
 
-export async function loadUniverse(id: string, d = db): Promise<UniverseState | null> {
+export async function loadUniverse(id: string, d = db): Promise<SoccerUniverse | null> {
   const row = await d.universes.get(id);
-  if (row && (row.state as { sport?: string }).sport === 'soccer') throw new Error('That is a Democracy FC save; open it from the Democracy FC picker.');
-  return row ? migrateSave(row.state) : null;
+  if (!row) return null;
+  if (row.state.saveVersion > SOCCER_SAVE_VERSION) throw new Error('This save is from a newer version of Democracy FC. Update the app first.');
+  return row.state;
 }
 
-export async function saveUniverse(state: UniverseState, d = db, now = Date.now()): Promise<void> {
+export const saveUniverse = async (state: SoccerUniverse, d = db, now = Date.now()) => {
   await d.universes.put(rowFor(state, now));
-}
+};
 
-async function saveSnapshot(state: UniverseState, kind: SnapshotRef['kind'], d: BlastballDB, now: number) {
-  await d.snapshots.add({ universeId: state.id, season: state.season, day: state.currentDay - 1, kind, createdAt: now, state } as SnapshotRow);
-  const all = await d.snapshots.where('universeId').equals(state.id).toArray();
-  await d.snapshots.bulkDelete(snapshotsToPrune(all as SnapshotRef[]));
-}
-
-/** Persist the outcome of a command: state, world events, play-by-play, and end-of-day snapshots. */
-export async function persistCommand(prev: UniverseState, result: CommandResult, d = db, now = Date.now()): Promise<void> {
+/** Persist a command's outcome: state, world events, play-by-play, and end-of-day snapshots. */
+export async function persistCommand(prev: SoccerUniverse, result: SoccerCommandResult, d = db, now = Date.now()): Promise<void> {
   const { state, events, pbp } = result;
   await d.transaction('rw', [d.universes, d.snapshots, d.games, d.worldEvents], async () => {
     await d.universes.put(rowFor(state, now));
     if (events.length) {
-      // Track the day each event happened on as we walk forward.
       let day = prev.currentDay;
       await d.worldEvents.bulkAdd(
         events.map((event) => {
@@ -125,28 +115,27 @@ export async function persistCommand(prev: UniverseState, result: CommandResult,
         }),
       );
     }
-    if (pbp.length) {
-      await d.games.bulkPut(pbp.map((p) => ({ universeId: state.id, season: p.season, gameId: p.gameId, day: p.day, pinned: false, engineVersion: p.engineVersion, events: p.events })));
-    }
+    if (pbp.length) await d.games.bulkPut(pbp.map((p) => ({ universeId: state.id, season: p.season, gameId: p.gameId, day: p.day, pinned: false, events: p.events })));
     if (state.currentDay !== prev.currentDay) {
-      await saveSnapshot(state, isSeasonOver(state) ? 'seasonEnd' : 'daily', d, now);
+      await d.snapshots.add({ universeId: state.id, season: state.season, day: state.currentDay - 1, kind: state.phase === 'offseason' ? 'seasonEnd' : 'daily', createdAt: now, state });
+      const all = await d.snapshots.where('universeId').equals(state.id).toArray();
+      await d.snapshots.bulkDelete(snapshotsToPrune(all as SnapshotRef[]));
       const games = await d.games.where('universeId').equals(state.id).toArray();
-      const drop = new Set(gamesToPrune(games, state.season, state.currentDay, PBP_DAYS_KEPT, perkValue(state.persona, 'extraPinnedGames')));
+      const drop = new Set(gamesToPrune(games, state.season, state.currentDay, PBP_DAYS_KEPT));
       await d.games.bulkDelete(games.filter((g) => drop.has(g.gameId) && !g.pinned).map((g) => [g.universeId, g.season, g.gameId] as [string, number, string]));
     }
   });
 }
 
-export async function appendEvent(state: UniverseState, event: WorldEvent, d = db, now = Date.now()): Promise<void> {
+export async function appendEvent(state: SoccerUniverse, event: SoccerWorldEvent, d = db, now = Date.now()): Promise<void> {
   await d.transaction('rw', [d.universes, d.worldEvents], async () => {
     await d.universes.put(rowFor(state, now));
     await d.worldEvents.add({ universeId: state.id, season: state.season, day: state.currentDay, event });
   });
 }
 
-export async function loadPlayByPlay(universeId: string, season: number, gameId: string, d = db): Promise<GameEvent[] | null> {
-  const row = await d.games.get([universeId, season, gameId]);
-  return row?.events ?? null;
+export async function loadPlayByPlay(universeId: string, season: number, gameId: string, d = db): Promise<SoccerEvent[] | null> {
+  return (await d.games.get([universeId, season, gameId]))?.events ?? null;
 }
 
 export async function deleteUniverse(id: string, d = db): Promise<void> {
@@ -164,20 +153,4 @@ export async function getSetting<T>(key: string, d = db): Promise<T | undefined>
 
 export async function setSetting(key: string, value: unknown, d = db): Promise<void> {
   await d.settings.put({ key, value });
-}
-
-/** Pin a game so its play-by-play survives compaction. */
-export async function setPinned(universeId: string, season: number, gameId: string, pinned: boolean, d = db): Promise<boolean> {
-  const updated = await d.games.update([universeId, season, gameId], { pinned });
-  return updated > 0;
-}
-
-export async function listPinned(universeId: string, d = db): Promise<Omit<GameRow, 'events'>[]> {
-  const rows = await d.games.where('universeId').equals(universeId).filter((g) => g.pinned).toArray();
-  return rows.map((r) => ({ universeId: r.universeId, season: r.season, gameId: r.gameId, day: r.day, pinned: r.pinned }));
-}
-
-export async function isPinned(universeId: string, season: number, gameId: string, d = db): Promise<boolean | null> {
-  const row = await d.games.get([universeId, season, gameId]);
-  return row ? row.pinned : null;
 }

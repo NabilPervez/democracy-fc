@@ -213,3 +213,24 @@ Winner-assumption checklist (from grep) and what happened to each:
 - Lighthouse PWA + performance run on a production build; on-device (mid-range phone) soak.
 - Democracy FC icons, splash screens, OG image, deploy URL.
 - Trademark search.
+
+---
+
+## S9 — New product cut: soccer only, green & gold, full core loop — ✅
+Direction from the owner (2026-10-07): Democracy FC is a new product; legacy baseball saves don't matter. Follow the PRD and build the best experience.
+
+**DoD**
+- [x] Baseball game, legacy UI, migrations, Play/TWA assets and their tests removed; one IndexedDB (`democracy-fc`) and one `.league` format.
+- [x] Green & gold brand: palette tokens, new icon (gold club shield + ballot-check-with-ball on pitch green), favicons, maskable/mono icons, iOS splash screens, OG image, shortcut icons, manifest screenshots — all generated from `scripts/brand.mjs` / `scripts/capture-screenshots.mjs`.
+- [x] Site URLs point at https://democracy-fc.netlify.app; privacy page rewritten.
+- [x] Core loop from §B3: Living time (a matchday per real hour by default, catch-up up to a week), **While You Were Gone** bulletin, kickoff countdown on the ballot.
+- [x] Fan personas (§B2): Diehard, Analyst, Prophet, Gambler, Organizer, each with one perk (rewards, lean precision, early dorm rumours, vote discount).
+- [x] Settings: time mode and day length, persona, backup download, restore from file, delete, replay intro.
+- [x] Pre-match rivalry callout from the Director (§B4).
+- [x] Tests, lint, typecheck, build green; verified in the browser at 380px and desktop.
+
+### S9 — 2026-10-07
+- Main bundle 469 KB (was 596 KB) after removing baseball.
+- Awakening trigger halved (12‰) so the ~1–3 per season spread across the season instead of arriving in week one.
+- Digest de-duplicates against news the fan already saw.
+- New tests: `tests/persona.digest.test.ts`, `tests/clock.test.ts`.

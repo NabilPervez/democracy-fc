@@ -1,16 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
     <defs>
-        <radialGradient id="glow" cx="50%" cy="46%" r="60%">
-          <stop offset="0" stop-color="#3a1a07"/><stop offset="0.55" stop-color="#1a0f0a"/><stop offset="1" stop-color="#0B0B0F"/>
-        </radialGradient>
-        <radialGradient id="ball" cx="38%" cy="32%" r="75%">
-          <stop offset="0" stop-color="#FFC27A"/><stop offset="0.45" stop-color="#FF7A1A"/><stop offset="1" stop-color="#C9480A"/>
-        </radialGradient>
-      </defs>
-      <rect width="512" height="512"  fill="url(#glow)"/>
-    <g transform="translate(46.08 46.08) scale(0.82)"><circle cx="256" cy="262" r="150" fill="#000" opacity="0.35"/>
-       <circle cx="256" cy="256" r="150" fill="url(#ball)"/>
-       <path d="M178 132 C 238 196, 238 316, 178 380" fill="none" stroke="#0B0B0F" stroke-width="16" stroke-linecap="round"/>
-      <path d="M334 132 C 274 196, 274 316, 334 380" fill="none" stroke="#0B0B0F" stroke-width="16" stroke-linecap="round"/>
-       <ellipse cx="212" cy="196" rx="58" ry="34" fill="#fff" opacity="0.22" transform="rotate(-28 212 196)"/><path d="M352 118 L362 146 L390 156 L362 166 L352 194 L342 166 L314 156 L342 146 Z" fill="#FFC93C"/></g>
+      <linearGradient id="pitch" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#1E9E57"/><stop offset="1" stop-color="#0B3D23"/>
+      </linearGradient>
+      <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#FFE07A"/><stop offset="0.55" stop-color="#F2C230"/><stop offset="1" stop-color="#B8860B"/>
+      </linearGradient>
+      <clipPath id="clip"><rect width="512" height="512" /></clipPath>
+    </defs>
+    <g clip-path="url(#clip)">
+      <rect width="512" height="512" fill="url(#pitch)"/>
+      <rect x="0" y="0" width="512" height="43" fill="#ffffff" opacity="0.05"/><rect x="0" y="86" width="512" height="43" fill="#ffffff" opacity="0.05"/><rect x="0" y="172" width="512" height="43" fill="#ffffff" opacity="0.05"/><rect x="0" y="258" width="512" height="43" fill="#ffffff" opacity="0.05"/><rect x="0" y="344" width="512" height="43" fill="#ffffff" opacity="0.05"/><rect x="0" y="430" width="512" height="43" fill="#ffffff" opacity="0.05"/>
+    </g>
+    <g transform="translate(51.20 51.20) scale(0.8)">
+      <path d="M256 92 L388 136 C388 252 352 344 256 412 C160 344 124 252 124 136 Z" fill="#000" opacity="0.3" transform="translate(0 10)"/>
+      <path d="M256 92 L388 136 C388 252 352 344 256 412 C160 344 124 252 124 136 Z" fill="url(#gold)"/>
+      <path d="M256 92 L388 136 C388 252 352 344 256 412 C160 344 124 252 124 136 Z" fill="none" stroke="#FFF3C4" stroke-opacity="0.6" stroke-width="6" transform="translate(256 252) scale(0.9) translate(-256 -252)"/>
+      <path d="M186 250 L238 300 L318 196" fill="none" stroke="#0B3D23" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="330" cy="182" r="26" fill="#FFFFFF" stroke="#0B3D23" stroke-width="8"/>
+      <path d="M330 168 L342 177 L337 191 L323 191 L318 177 Z" fill="#0B3D23"/>
+    </g>
   </svg>

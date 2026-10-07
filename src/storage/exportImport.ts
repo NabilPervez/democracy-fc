@@ -1,13 +1,12 @@
-import { ENGINE_VERSION } from '../engine/baseball/game';
-import { SAVE_VERSION, type UniverseState } from '../world/universe';
-import { db, type BlastballDB, type GameRow, type SnapshotRow, type WorldEventRow } from './db';
-import { InvalidSaveError, migrateSave } from './migrate';
-import { SOCCER_SAVE_VERSION, type SoccerUniverse } from '../world/soccer/universe';
 import { SOCCER_ENGINE_VERSION } from '../engine/soccer/game';
+import { SOCCER_SAVE_VERSION, type SoccerUniverse } from '../world/soccer/universe';
+import { db, type AssemblyDB, type GameRow, type SnapshotRow, type WorldEventRow } from './db';
 
-/** `.league` file: gzip-compressed JSON. */
-export const LEAGUE_FORMAT = 'blastball.league';
+/** `.league` backup file: gzip-compressed JSON of a universe and its history. */
+export const LEAGUE_FORMAT = 'democracy-fc.league';
 export const LEAGUE_FORMAT_VERSION = 1;
+
+export class InvalidSaveError extends Error {}
 
 export interface LeagueFile {
   format: typeof LEAGUE_FORMAT;
@@ -15,91 +14,73 @@ export interface LeagueFile {
   saveVersion: number;
   engineVersion: number;
   exportedAt: number;
-  /** Which game the save plays (PRD §C6: included in metadata). Missing = baseball. */
-  sport?: 'baseball' | 'soccer';
-  state: UniverseState | SoccerUniverse;
+  state: SoccerUniverse;
   snapshots: Omit<SnapshotRow, 'id' | 'universeId'>[];
   worldEvents: Omit<WorldEventRow, 'id' | 'universeId'>[];
   games: Omit<GameRow, 'universeId'>[];
 }
 
 async function gzip(text: string): Promise<Blob> {
-  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
-  return new Response(stream).blob();
+  return new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).blob();
 }
 
 async function gunzip(blob: Blob): Promise<string> {
-  const stream = blob.stream().pipeThrough(new DecompressionStream('gzip'));
-  return new Response(stream).text();
+  return new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).text();
 }
 
-export async function exportUniverse(id: string, opts: { includePlayByPlay: boolean }, d: BlastballDB = db, now = Date.now()): Promise<Blob> {
+const strip = <T extends { universeId: string; id?: number }>(r: T): Omit<T, 'universeId' | 'id'> => {
+  const copy: Partial<T> = { ...r };
+  delete copy.universeId;
+  delete copy.id;
+  return copy as Omit<T, 'universeId' | 'id'>;
+};
+
+export async function exportUniverse(id: string, opts: { includePlayByPlay: boolean }, d: AssemblyDB = db, now = Date.now()): Promise<Blob> {
   const row = await d.universes.get(id);
   if (!row) throw new Error('Universe not found.');
-  const strip = <T extends { universeId: string; id?: number }>(r: T) => {
-    const copy: Partial<T> = { ...r };
-    delete copy.universeId;
-    delete copy.id;
-    return copy;
-  };
-  const soccer = row.state.sport === 'soccer';
   const file: LeagueFile = {
     format: LEAGUE_FORMAT,
     formatVersion: LEAGUE_FORMAT_VERSION,
-    saveVersion: soccer ? SOCCER_SAVE_VERSION : SAVE_VERSION,
-    engineVersion: soccer ? SOCCER_ENGINE_VERSION : ENGINE_VERSION,
-    sport: soccer ? 'soccer' : 'baseball',
+    saveVersion: SOCCER_SAVE_VERSION,
+    engineVersion: SOCCER_ENGINE_VERSION,
     exportedAt: now,
     state: row.state,
-    snapshots: (await d.snapshots.where('universeId').equals(id).toArray()).map(strip) as LeagueFile['snapshots'],
-    worldEvents: (await d.worldEvents.where('universeId').equals(id).toArray()).map(strip) as LeagueFile['worldEvents'],
-    games: opts.includePlayByPlay ? ((await d.games.where('universeId').equals(id).toArray()).map(strip) as LeagueFile['games']) : [],
+    snapshots: (await d.snapshots.where('universeId').equals(id).toArray()).map(strip),
+    worldEvents: (await d.worldEvents.where('universeId').equals(id).toArray()).map(strip),
+    games: opts.includePlayByPlay ? (await d.games.where('universeId').equals(id).toArray()).map(strip) : [],
   };
   return gzip(JSON.stringify(file));
 }
 
-/** Validate and migrate a `.league` file. Throws InvalidSaveError / NewerSaveError without touching the DB. */
+/** Validate a `.league` file without touching the DB. */
 export async function readLeagueFile(blob: Blob): Promise<LeagueFile> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(await gunzip(blob));
   } catch {
-    throw new InvalidSaveError("This file isn't a readable .league save (it may be corrupt).");
+    throw new InvalidSaveError("This file isn't a readable .league backup (it may be corrupt).");
   }
   const f = parsed as Partial<LeagueFile>;
-  if (!f || f.format !== LEAGUE_FORMAT) throw new InvalidSaveError("This file isn't a Blastball .league save.");
-  if (typeof f.formatVersion !== 'number' || f.formatVersion > LEAGUE_FORMAT_VERSION) {
-    throw new InvalidSaveError('This .league file is from a newer version of Blastball. Update the app first.');
+  if (!f || f.format !== LEAGUE_FORMAT) throw new InvalidSaveError("This file isn't a Democracy FC backup.");
+  if (typeof f.formatVersion !== 'number' || f.formatVersion > LEAGUE_FORMAT_VERSION || (f.state?.saveVersion ?? Infinity) > SOCCER_SAVE_VERSION) {
+    throw new InvalidSaveError('This backup is from a newer version of Democracy FC. Update the app first.');
   }
-  if (!Array.isArray(f.snapshots) || !Array.isArray(f.worldEvents) || !Array.isArray(f.games)) {
-    throw new InvalidSaveError('This .league file is incomplete.');
+  if (!f.state?.id || !f.state.league || !Array.isArray(f.snapshots) || !Array.isArray(f.worldEvents) || !Array.isArray(f.games)) {
+    throw new InvalidSaveError('This backup is incomplete.');
   }
-  if ((f.state as { sport?: string } | undefined)?.sport === 'soccer') {
-    const st = f.state as SoccerUniverse;
-    if (typeof st.saveVersion !== 'number' || st.saveVersion > SOCCER_SAVE_VERSION) throw new InvalidSaveError('This Democracy FC save is from a newer version. Update the app first.');
-    if (!st.id || !st.settings || !st.league || !st.schedule) throw new InvalidSaveError('This .league file is incomplete.');
-    return f as LeagueFile;
-  }
-  const state = migrateSave(f.state);
-  const snapshots = f.snapshots.map((s) => ({ ...s, state: migrateSave(s.state) }));
-  return { ...(f as LeagueFile), state, snapshots };
+  return f as LeagueFile;
 }
 
-/**
- * Import a `.league` file. If a universe with the same id already exists, the import becomes
- * a copy with a new id so nothing is overwritten. Returns the imported universe's id.
- */
-export async function importLeague(blob: Blob, d: BlastballDB = db, newId: () => string = () => crypto.randomUUID(), now = Date.now()): Promise<string> {
+/** Import a backup. If the universe already exists, the import becomes a copy with a new id. */
+export async function importLeague(blob: Blob, d: AssemblyDB = db, newId: () => string = () => crypto.randomUUID(), now = Date.now()): Promise<string> {
   const file = await readLeagueFile(blob);
   const exists = !!(await d.universes.get(file.state.id));
   const id = exists ? newId() : file.state.id;
-  const rename = <S extends UniverseState | SoccerUniverse>(s: S): S =>
-    exists ? { ...s, id, settings: { ...s.settings, name: `${s.settings.name} (copy)` } } : s;
+  const rename = (s: SoccerUniverse): SoccerUniverse => (exists ? { ...s, id, settings: { ...s.settings, name: `${s.settings.name} (copy)` } } : s);
   const state = rename(file.state);
-
   await d.transaction('rw', [d.universes, d.snapshots, d.games, d.worldEvents], async () => {
-    await d.universes.put({ id, sport: state.sport === 'soccer' ? 'soccer' : 'baseball', name: state.settings.name, seed: state.settings.seed, season: state.season, currentDay: state.currentDay, updatedAt: now, state });
-    await d.snapshots.bulkAdd(file.snapshots.map((s) => ({ ...s, universeId: id, state: rename(s.state) }) as SnapshotRow));
+    await d.universes.put({ id, name: state.settings.name, seed: state.settings.seed, season: state.season, currentDay: state.currentDay, updatedAt: now, state });
+    await d.snapshots.bulkAdd(file.snapshots.map((s) => ({ ...s, universeId: id, state: rename(s.state) })));
     await d.worldEvents.bulkAdd(file.worldEvents.map((e) => ({ ...e, universeId: id })));
     await d.games.bulkPut(file.games.map((g) => ({ ...g, universeId: id })));
   });

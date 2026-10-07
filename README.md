@@ -4,13 +4,11 @@ A sealed soccer facility, The Assembly, runs a 5-a-side league in glass-walled a
 You're a fan outside the walls: pick a club, vote on its tactic and captain before every match, make
 predictions with earn-only coins, and vote with every other fan base on the facility's rules.
 
-Built on [Blastball](https://github.com/NabilPervez/blastball): same local-first PWA shell, a new sport.
-Old Blastball (baseball) saves still open in the legacy app.
+Live at **https://democracy-fc.netlify.app**. Started from the [Blastball](https://github.com/NabilPervez/blastball) shell; the baseball game has been removed.
 
 - Product spec: [`prd.md`](prd.md)
 - Sprint plan, definitions of done and progress log: [`SPRINT_PLAN_DFC.md`](SPRINT_PLAN_DFC.md)
 - IP review: [`docs/IP_CHECKLIST.md`](docs/IP_CHECKLIST.md)
-- Blastball history: `blastball-prd_*.md`, `SPRINT_PLAN.md`, `SPRINT_PLAN_2.md`
 
 ## Where things live
 

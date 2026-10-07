@@ -1,28 +1,21 @@
-import type { GameResult, Player, Ratings, ScheduledGame, StarGroup } from './baseball/types';
-
-const STAR_GROUPS: Record<StarGroup, (keyof Ratings)[]> = {
-  batting: ['contact', 'power', 'discipline'],
-  pitching: ['velocity', 'control', 'stuff'],
-  baserunning: ['speed'],
-  defense: ['defense'],
-};
-
-/** Visible star rating (0–5 in half-star steps) for one group of hidden ratings. */
-export function stars(player: Player, group: StarGroup): number {
-  const keys = STAR_GROUPS[group];
-  const avg = keys.reduce((sum, k) => sum + player.ratings[k], 0) / keys.length;
-  return Math.round((avg / 100) * 10) / 2;
-}
+/** League scheduling and standings (sport-neutral helpers). */
 
 /**
  * Round-robin schedule (circle method): every team plays exactly one game per day, and every
  * other team once per cycle of n-1 days. Home/away alternate between cycles. Requires an even
  * number of teams. `days` = games per team in the season.
  */
-export function generateSchedule(teams: readonly { id: string }[], days: number): ScheduledGame[] {
+export interface Fixture {
+  id: string;
+  day: number;
+  awayId: string;
+  homeId: string;
+}
+
+export function generateSchedule(teams: readonly { id: string }[], days: number): Fixture[] {
   const ids = teams.map((t) => t.id);
   const n = ids.length;
-  const games: ScheduledGame[] = [];
+  const games: Fixture[] = [];
   let rot = [...ids];
   for (let day = 1; day <= days; day++) {
     const round = (day - 1) % (n - 1);
@@ -51,7 +44,12 @@ export interface StandingRow {
   runsAgainst: number;
 }
 
-export type ScoreLine = Pick<GameResult, 'awayId' | 'homeId' | 'awayScore' | 'homeScore'>;
+export interface ScoreLine {
+  awayId: string;
+  homeId: string;
+  awayScore: number;
+  homeScore: number;
+}
 
 /** Winner of a finished game, or null for a draw. */
 export function matchWinner(r: ScoreLine): string | null {

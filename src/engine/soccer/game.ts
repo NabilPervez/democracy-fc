@@ -404,7 +404,7 @@ export const SIGNATURE_PM = 90;
 export const BOND_ACTIVE = 3;
 export const RIVAL_ACTIVE = 3;
 /** Per mille, a late goal by a trailing side Awakens the scorer (the world caps it per season). */
-export const AWAKEN_PM = 25;
+export const AWAKEN_PM = 12;
 
 const bonded = (s: MatchState, a: string, b: string) => (s.league.players[a]?.bonds?.[b] ?? 0) >= BOND_ACTIVE;
 const rivals = (s: MatchState, a: string, b: string) => (s.league.players[a]?.rivals?.[b] ?? 0) >= RIVAL_ACTIVE;

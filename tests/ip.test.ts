@@ -11,7 +11,7 @@ const BANNED = [/blue\s*lock/i, /egoist/i, /\bego\b/i, /neo\s*egoist/i, /blaseba
 
 describe('IP review (§B12)', () => {
   it('no banned names or terms anywhere in shipped code, content or HTML', () => {
-    expect(Object.keys(files).length).toBeGreaterThan(50);
+    expect(Object.keys(files).length).toBeGreaterThan(30);
     for (const [file, text] of Object.entries(files)) for (const re of BANNED) expect(re.test(text), `${file} matches ${re}`).toBe(false);
   });
 });

@@ -13,8 +13,8 @@ export default tseslint.config(
     plugins: { 'react-hooks': reactHooks },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      // Determinism: all randomness must come from the seeded RNG in src/engine/rng.ts
-      'no-restricted-properties': ['error', { object: 'Math', property: 'random', message: 'Use the seeded RNG (src/engine/rng.ts).' }],
+      // Determinism: all randomness must come from the seeded RNG in src/engine/core/rng.ts
+      'no-restricted-properties': ['error', { object: 'Math', property: 'random', message: 'Use the seeded RNG (src/engine/core/rng.ts).' }],
     },
   },
   {

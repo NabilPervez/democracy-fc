@@ -4,7 +4,6 @@ import type { StandingRow } from '../../engine/season';
 import { soccerStars, SOCCER_STAR_GROUPS } from '../../engine/soccer/sport';
 import type { Drive, SoccerLeague, SoccerRatingKey, SoccerStarGroup, SoccerTeam, Style } from '../../engine/soccer/types';
 import { FACTION_BUDGET, type Faction } from '../factions';
-import { votesCost } from '../elections';
 
 /**
  * Facility elections (PRD §B7). Two kinds of voters:
@@ -238,4 +237,4 @@ export function electionWinner(totals: number[]): number {
 }
 
 /** Coins to own `n` votes on one proposal in one election: quadratic, at twice the Matchday rate (§B7a). */
-export const soccerVotesCost = (n: number) => 2 * votesCost(n, false);
+export const soccerVotesCost = (n: number) => 2 * n * n;

@@ -28,8 +28,8 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 const PHASE_COLOR: Record<Phase, string> = {
-  buildUp: '#ffb27a', progression: '#ff9447', creation: '#ff7a1a', highBlock: '#6b7383', midBlock: '#4c5362', lowBlock: '#343a46',
-  attTransition: '#ffffff', defTransition: '#cfcfd6', attSetPiece: '#ffb020', defSetPiece: '#b38019',
+  buildUp: '#f7dc85', progression: '#f5cf55', creation: '#f2c230', highBlock: '#6b7383', midBlock: '#4c5362', lowBlock: '#343a46',
+  attTransition: '#ffffff', defTransition: '#cfcfd6', attSetPiece: '#e8a317', defSetPiece: '#b38019',
 };
 
 export function MatchView({ gameId }: { gameId: string }) {

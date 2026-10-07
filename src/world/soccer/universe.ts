@@ -19,6 +19,8 @@ import {
   generateSoccerProposals, soccerVotesCost, type SoccerElection, type SoccerProposal,
 } from './elections';
 import type { MatchRules } from '../../engine/soccer/game';
+import type { Clock } from '../clock';
+import { personaReward, personaVoteCost, type PersonaId } from './persona';
 import { getTactic } from '../../engine/soccer/tactics';
 import { phaseStats } from '../../engine/soccer/phase';
 import {
@@ -28,7 +30,7 @@ import {
 
 /**
  * Democracy FC world (PRD Part B): The Assembly's league, run as an event-sourced state like the
- * Blastball universe. Every change is a WorldEvent applied by `reduceSoccer`, so a save can be
+ * event log. Every change is a WorldEvent applied by `reduceSoccer`, so a save can be
  * rebuilt from its events and every match replays from its seed.
  */
 
@@ -50,6 +52,8 @@ export interface SoccerSettings {
   timeMode: 'manual' | 'living';
   dayLengthMinutes: number;
 }
+
+export const DEFAULT_DAY_MINUTES = 60;
 
 export interface SoccerMatchSummary {
   gameId: string;
@@ -177,6 +181,10 @@ export interface SoccerUniverse {
   morale: Record<string, number>;
   /** Captaincy record per player: total and current streak (Fan Favorite). */
   captaincy: Record<string, { total: number; streak: number }>;
+  /** Living time: real time at which a day began (null in Manual mode). */
+  clock: Clock | null;
+  /** The fan's persona (§B2). */
+  persona: PersonaId | null;
 }
 
 export interface ActiveRule {
@@ -204,6 +212,9 @@ export type SoccerWorldEvent =
   | { type: 'clubSwitched'; clubId: string }
   | { type: 'votesBought'; electionId: number; proposal: number; count: number }
   | { type: 'ballotVote'; gameId: string; question: BallotQuestion; option: number; count: number }
+  | { type: 'personaChosen'; persona: PersonaId }
+  | { type: 'timeSettingsChanged'; timeMode: 'manual' | 'living'; dayLengthMinutes: number; nowMs: number }
+  | { type: 'clockSet'; clock: Clock }
   | { type: 'dayEnded'; day: number };
 
 export type SoccerCommand =
@@ -283,6 +294,8 @@ export function createSoccerUniverse(id: string, settings: SoccerSettings, favor
     ballots: {},
     morale: {},
     captaincy: {},
+    clock: settings.timeMode === 'living' ? { anchorMs: now, anchorDay: 1 } : null,
+    persona: null,
   };
 }
 
@@ -536,7 +549,8 @@ function settleBets(s: SoccerUniverse, summary: SoccerMatchSummary): SoccerUnive
     if (b.gameId !== summary.gameId || b.status !== 'open') return b;
     const right = b.market ? sideWinner[b.market] === b.teamId : b.teamId === winner;
     if (!right) return { ...b, status: 'lost', payout: 0 };
-    const payout = Math.floor((b.amount * b.multMilli) / 1000);
+    const mult = personaReward(s.persona, b.multMilli, b.pm, !b.market && b.teamId === s.favoriteClubId);
+    const payout = Math.floor((b.amount * mult) / 1000);
     next = { ...next, coins: next.coins + payout, ledger: withLedger(next, payout, `Prediction right: ${predictionLabel(s, b)}`) };
     return { ...b, status: 'won', payout };
   });
@@ -676,8 +690,7 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
     case 'votesBought': {
       const e = currentElection(state);
       if (!e || e.id !== event.electionId || voteError(state, event.electionId, event.proposal, event.count)) return state;
-      const have = e.playerVotes[event.proposal];
-      const cost = soccerVotesCost(have + event.count) - soccerVotesCost(have);
+      const cost = electionVoteCost(state, e.playerVotes[event.proposal], event.count);
       const playerVotes = e.playerVotes.map((v, i) => (i === event.proposal ? v + event.count : v));
       const elections = state.elections.map((x) => (x.id === e.id ? { ...x, playerVotes, coinsSpent: x.coinsSpent + cost } : x));
       return { ...state, elections, coins: state.coins - cost, ledger: withLedger(state, -cost, `Votes: ${e.proposals[event.proposal].title}`) };
@@ -695,6 +708,17 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
         ledger: cost ? withLedger(state, -cost, 'Matchday Ballot votes') : state.ledger,
       };
     }
+
+    case 'personaChosen':
+      return { ...state, persona: event.persona };
+
+    case 'timeSettingsChanged': {
+      const settings = { ...state.settings, timeMode: event.timeMode, dayLengthMinutes: event.dayLengthMinutes };
+      return { ...state, settings, clock: event.timeMode === 'living' ? { anchorMs: event.nowMs, anchorDay: state.dayCount } : null };
+    }
+
+    case 'clockSet':
+      return state.settings.timeMode === 'living' ? { ...state, clock: event.clock } : state;
 
     case 'dayEnded': {
       if (event.day !== state.currentDay) return state;
@@ -777,13 +801,16 @@ export const currentElection = (s: SoccerUniverse): SoccerElection | null => {
   return e && !e.result ? e : null;
 };
 
+/** Coins to add `count` votes on top of `have` in an election (quadratic, persona discount). */
+export const electionVoteCost = (s: SoccerUniverse, have: number, count: number) =>
+  personaVoteCost(s.persona, soccerVotesCost(have + count) - soccerVotesCost(have));
+
 export function voteError(s: SoccerUniverse, electionId: number, proposal: number, count: number): string | null {
   const e = currentElection(s);
   if (!e || e.id !== electionId) return 'That election is closed.';
   if (proposal < 0 || proposal >= e.proposals.length) return 'No such proposal.';
   if (!Number.isInteger(count) || count < 1) return 'Buy at least 1 vote.';
-  const have = e.playerVotes[proposal];
-  if (soccerVotesCost(have + count) - soccerVotesCost(have) > s.coins) return 'Not enough coins.';
+  if (electionVoteCost(s, e.playerVotes[proposal], count) > s.coins) return 'Not enough coins.';
   return null;
 }
 

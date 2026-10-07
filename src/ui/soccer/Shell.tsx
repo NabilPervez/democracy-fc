@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { exportUniverse, importLeague, leagueFileName } from '../../storage/exportImport';
+import { DAY_LENGTHS, formatDuration, msUntilNextDay } from '../../world/clock';
+import { PERSONAS, type PersonaId } from '../../world/soccer/persona';
 import { generateSoccerLeague } from '../../world/soccer/generate';
-import { SOCCER_LEAGUE_SIZES, type SoccerSettings } from '../../world/soccer/universe';
+import { DEFAULT_DAY_MINUTES, SOCCER_LEAGUE_SIZES, type SoccerSettings } from '../../world/soccer/universe';
 import type { Chaos } from '../../world/soccer/weird';
 import { Bulletin } from './Bulletin';
-import { Coins, Crest, ErrorBanner } from './bits';
+import { Coins, Crest, ErrorBanner, useNow } from './bits';
 import { Archive, Facility, Matches, VoteScreen } from './Screens';
 import { useAssembly, type SoccerTab } from './store';
 
@@ -16,16 +19,29 @@ const TABS: { id: SoccerTab; label: string; icon: string }[] = [
 ];
 
 export function SoccerApp() {
-  const { view, tab, setTab, init, finishIntro, showPicker, busy } = useAssembly();
+  const { view, tab, setTab, init, finishIntro, showPicker, busy, catchUp, showSettings, catchingUp } = useAssembly();
   const u = useAssembly((s) => s.u);
   useEffect(() => {
     void init();
   }, [init]);
 
+  // Living time: keep the facility turning while the app is open, and catch up when it comes back into view.
+  useEffect(() => {
+    const tick = () => void catchUp();
+    const t = setInterval(tick, 30_000);
+    const onVisible = () => document.visibilityState === 'visible' && tick();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [catchUp]);
+
   if (view === 'loading') return <p className="solo muted">Loading…</p>;
   if (view === 'intro') return <Onboarding onDone={() => void finishIntro()} />;
   if (view === 'picker') return <Picker />;
   if (view === 'create') return <Create />;
+  if (view === 'settings') return <Settings />;
   if (!u) return <Picker />;
 
   return (
@@ -53,8 +69,11 @@ export function SoccerApp() {
             <span className="topbar-name">{u.settings.name}</span>
             <span className="muted small">⇄</span>
           </button>
-          {busy && <span className="muted small" role="status">Simulating…</span>}
+          {busy && <span className="muted small" role="status">{catchingUp ? `Catching up ${catchingUp.done}/${catchingUp.total}…` : 'Simulating…'}</span>}
           <Coins />
+          <button className="chip" onClick={showSettings} aria-label="Settings">
+            ⚙
+          </button>
         </header>
         {tab === 'bulletin' && <Bulletin />}
         {tab === 'matches' && <Matches />}
@@ -73,7 +92,7 @@ function Picker() {
       <ErrorBanner />
       <p className="eyebrow">The Assembly</p>
       <h1 className="display big">
-        DEMOCRACY <span style={{ color: 'var(--accent)' }}>FC</span>
+        DEMOCRACY <span style={{ color: 'var(--primary)' }}>FC</span>
       </h1>
       <p className="muted">A sealed facility. A league that plays itself. You vote on how.</p>
       <button className="btn primary" onClick={showCreate} style={{ margin: '12px 0' }}>
@@ -85,7 +104,7 @@ function Picker() {
             <button className="universe-open" onClick={() => void open(m.id)}>
               <strong>{m.name}</strong>
               <span className="small muted">
-                {m.sport === 'soccer' ? 'Democracy FC' : 'Blastball (legacy)'} · Season {m.season}, day {m.currentDay}
+                Season {m.season}, day {m.currentDay} · seed {m.seed}
               </span>
             </button>
             <button className="chip" onClick={() => confirm(`Delete "${m.name}"? This can't be undone.`) && void remove(m.id)} aria-label={`Delete ${m.name}`}>
@@ -94,9 +113,130 @@ function Picker() {
           </li>
         ))}
       </ul>
+      <ImportButton />
       <button className="link-btn" onClick={showIntro}>
         How does this work?
       </button>
+    </div>
+  );
+}
+
+function ImportButton() {
+  const input = useRef<HTMLInputElement>(null);
+  const { open, showPicker } = useAssembly();
+  return (
+    <>
+      <input
+        ref={input}
+        type="file"
+        accept=".league"
+        hidden
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          try {
+            const id = await importLeague(file);
+            await showPicker();
+            await open(id);
+          } catch (err) {
+            useAssembly.setState({ error: err instanceof Error ? err.message : String(err) });
+          }
+        }}
+      />
+      <button className="btn" onClick={() => input.current?.click()}>
+        Restore a backup (.league)
+      </button>
+    </>
+  );
+}
+
+function Settings() {
+  const u = useAssembly((s) => s.u);
+  const { closeSettings, dispatch, remove, showIntro } = useAssembly();
+  const now = useNow();
+  if (!u) return null;
+  const living = u.settings.timeMode === 'living';
+  const next = u.clock ? msUntilNextDay(u.clock, u.settings.dayLengthMinutes, u.dayCount, now) : null;
+  const setTime = (timeMode: 'manual' | 'living', dayLengthMinutes = u.settings.dayLengthMinutes) =>
+    void dispatch({ type: 'timeSettingsChanged', timeMode, dayLengthMinutes, nowMs: Date.now() });
+  const backup = async () => {
+    const blob = await exportUniverse(u.id, { includePlayByPlay: true });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = leagueFileName(u.settings.name);
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  return (
+    <div className="solo dfc">
+      <ErrorBanner />
+      <button className="link-btn" onClick={closeSettings}>
+        ← Back
+      </button>
+      <h1>Settings</h1>
+      <h2>Time</h2>
+      <fieldset className="choice-row">
+        <legend>How the facility's days pass</legend>
+        <button type="button" className="chip" aria-pressed={!living} onClick={() => setTime('manual')}>
+          Manual
+        </button>
+        <button type="button" className="chip" aria-pressed={living} onClick={() => setTime('living')}>
+          Living
+        </button>
+      </fieldset>
+      <p className="muted small">
+        {living
+          ? `A matchday passes every ${DAY_LENGTHS.find((d) => d.minutes === u.settings.dayLengthMinutes)?.label ?? `${u.settings.dayLengthMinutes} minutes`} of real time, even while you're away (up to a week catches up when you return).${next !== null ? ` Next matchday in ${formatDuration(next)}.` : ''}`
+          : 'Days only pass when you press play. Good for binge sessions.'}
+      </p>
+      {living && (
+        <fieldset className="choice-row">
+          <legend>Day length</legend>
+          {DAY_LENGTHS.map((d) => (
+            <button type="button" key={d.minutes} className="chip" aria-pressed={u.settings.dayLengthMinutes === d.minutes} onClick={() => setTime('living', d.minutes)}>
+              {d.label}
+            </button>
+          ))}
+        </fieldset>
+      )}
+      <h2>Your persona</h2>
+      <PersonaPicker value={u.persona} onChange={(p) => void dispatch({ type: 'personaChosen', persona: p })} />
+      <h2>Backup</h2>
+      <p className="muted small">Everything lives on this device only. Save a backup file to move or protect your universe.</p>
+      <button className="btn" onClick={() => void backup()}>
+        Download backup
+      </button>
+      <h2>Other</h2>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <button className="btn" onClick={showIntro}>
+          Replay the intro
+        </button>
+        <a className="btn" href="/privacy.html" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+          Privacy
+        </a>
+        <button className="btn" onClick={() => confirm(`Delete "${u.settings.name}"? This can't be undone.`) && void remove(u.id)}>
+          Delete this universe
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function PersonaPicker({ value, onChange }: { value: PersonaId | null; onChange: (p: PersonaId) => void }) {
+  return (
+    <div className="club-pick">
+      {PERSONAS.map((p) => (
+        <button type="button" key={p.id} className="card" aria-pressed={value === p.id} onClick={() => onChange(p.id)}>
+          <span className="crest" aria-hidden="true" style={{ width: 28, height: 28, background: 'var(--surface-2)', color: 'var(--primary)' }}>
+            {p.icon}
+          </span>
+          <span>
+            <strong>{p.name}</strong>
+            <br />
+            <span className="small muted">{p.perk}</span>
+          </span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -115,6 +255,8 @@ function Create() {
   const [size, setSize] = useState<SoccerSettings['leagueSize']>(12);
   const [chaos, setChaos] = useState<Chaos>('normal');
   const [club, setClub] = useState<number | null>(null);
+  const [persona, setPersona] = useState<PersonaId | null>(null);
+  const [living, setLiving] = useState(false);
   const league = useMemo(() => generateSoccerLeague({ seed, name, teamCount: size }), [seed, name, size]);
   return (
     <div className="solo dfc">
@@ -127,7 +269,7 @@ function Create() {
         onSubmit={(e) => {
           e.preventDefault();
           if (club === null) return;
-          void create({ name: name.trim() || 'The Assembly', seed, leagueSize: size, chaos, timeMode: 'manual', dayLengthMinutes: 60 }, club);
+          void create({ name: name.trim() || 'The Assembly', seed, leagueSize: size, chaos, timeMode: living ? 'living' : 'manual', dayLengthMinutes: DEFAULT_DAY_MINUTES }, club, persona);
         }}
       >
         <label>
@@ -153,6 +295,19 @@ function Create() {
               {c.label}
             </button>
           ))}
+        </fieldset>
+        <fieldset className="choice-row">
+          <legend>Time</legend>
+          <button type="button" className="chip" aria-pressed={!living} onClick={() => setLiving(false)} title="Days pass when you press play">
+            Manual
+          </button>
+          <button type="button" className="chip" aria-pressed={living} onClick={() => setLiving(true)} title="A matchday every real hour, even while you're away">
+            Living (1 day / hour)
+          </button>
+        </fieldset>
+        <fieldset>
+          <legend>Your fan persona (optional)</legend>
+          <PersonaPicker value={persona} onChange={setPersona} />
         </fieldset>
         <fieldset>
           <legend>Pick your club (required)</legend>

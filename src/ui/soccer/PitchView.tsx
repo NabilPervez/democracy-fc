@@ -44,7 +44,7 @@ export function PitchView({ frame, league, arenaId, colors }: { frame: PitchFram
     <div className="pitch-wrap" aria-hidden="true">
       <svg className="pitch" viewBox={`0 0 ${W} ${H}`} role="presentation">
         {/* Lit third in the attacking club's colour. */}
-        {lit && <rect x={2 + lit.index * 32} y={top} width={32} height={bottom - top} fill={colors[lit.teamId] ?? '#ff7a1a'} opacity={0.12} />}
+        {lit && <rect x={2 + lit.index * 32} y={top} width={32} height={bottom - top} fill={colors[lit.teamId] ?? '#f2c230'} opacity={0.12} />}
         {/* Defending block band. */}
         {frame.block && <rect x={xs(frame.block.x0)} y={blockY0} width={Math.max(2, xs(frame.block.x1) - xs(frame.block.x0))} height={bottom - top - 4} fill="#3a3f4b" opacity={0.35} />}
         {/* Floor markings. */}
@@ -60,7 +60,7 @@ export function PitchView({ frame, league, arenaId, colors }: { frame: PitchFram
         {frame.bank && (
           <polyline
             points={`${xs(frame.ball.x)},${ys(frame.ball.y)} ${xs(frame.ball.x) + (frame.ball.x < 50 ? 10 : -10)},${frame.bank === 'left' ? top : bottom} ${frame.ball.x < 50 ? 98 : 2},${H / 2}`}
-            fill="none" stroke="#ffc93c" strokeWidth={0.4} strokeDasharray="1 0.8"
+            fill="none" stroke="#3ddc84" strokeWidth={0.4} strokeDasharray="1 0.8"
           />
         )}
         {/* Shot line to goal. */}

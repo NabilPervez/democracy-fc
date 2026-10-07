@@ -12,5 +12,5 @@ Last reviewed: 2026-10-07, at the end of Sprint 8.
 | No Blaseball names (inherited rule from the Blastball PRD) | ✅ | Same scan in `tests/ip.test.ts`. |
 
 Also before launch:
-- The PWA icons, splash screens and `og-image.png` are still Blastball artwork, and `og:url` points at the Blastball site. Replace them with Democracy FC assets once a deploy URL exists.
+- ✅ Icons, splash screens, OG image and screenshots are original Democracy FC artwork; `og:url` is https://democracy-fc.netlify.app.
 - Run Lighthouse (PWA + performance) against a production build.

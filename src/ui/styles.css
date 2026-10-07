@@ -1,13 +1,13 @@
 :root {
-  --base: #0b0b0f;
-  --surface: #16161d;
-  --surface-2: #1e1e27;
-  --line: #2a2a35;
-  --primary: #ff7a1a;
-  --secondary: #ffc93c;
+  --base: #06110b;
+  --surface: #0c1d13;
+  --surface-2: #13291b;
+  --line: #1f3a29;
+  --primary: #f2c230;
+  --secondary: #3ddc84;
   --accent: #2e8bff;
   --text: #f2f2f5;
-  --muted: #9a9aa8;
+  --muted: #9db3a5;
   --good: #3ddc97;
   --bad: #ff6b6b;
   --radius: 14px;
@@ -47,7 +47,7 @@ h2 { font-size: 1.2rem; color: var(--muted); margin: 28px 0 12px; }
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
   display: flex; justify-content: space-around;
   height: calc(var(--nav-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
-  background: rgba(22, 22, 29, 0.92); backdrop-filter: blur(12px); border-top: 1px solid var(--line);
+  background: rgba(12, 29, 19, 0.92); backdrop-filter: blur(12px); border-top: 1px solid var(--line);
 }
 .brand { display: none; }
 .nav-item {
@@ -130,8 +130,8 @@ h2 { font-size: 1.2rem; color: var(--muted); margin: 28px 0 12px; }
 .feed-item { padding: 8px 12px; border-left: 3px solid transparent; color: var(--muted); font-size: 0.92rem; }
 .feed-item.k-atBat, .feed-item.k-hit, .feed-item.k-out, .feed-item.k-strikeout, .feed-item.k-walk { color: var(--text); }
 .feed-item.k-halfStart, .feed-item.k-gameStart { color: var(--accent); font-weight: 600; margin-top: 8px; }
-.feed-item.big { color: var(--text); background: rgba(255, 122, 26, 0.1); border-left-color: var(--primary); font-weight: 600; }
-.feed-item.k-gameEnd { color: var(--secondary); border-left-color: var(--secondary); background: rgba(255, 201, 60, 0.08); }
+.feed-item.big { color: var(--text); background: rgba(242, 194, 48, 0.1); border-left-color: var(--primary); font-weight: 600; }
+.feed-item.k-gameEnd { color: var(--secondary); border-left-color: var(--secondary); background: rgba(61, 220, 132, 0.08); }
 
 /* League */
 .table-wrap { overflow-x: auto; }

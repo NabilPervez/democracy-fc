@@ -1,6 +1,5 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { getSport } from '../src/engine/core/registry';
 import { HALF_SECONDS, simulateSoccer } from '../src/engine/soccer/game';
 import type { SoccerResult } from '../src/engine/soccer/types';
 import { generateSoccerLeague } from '../src/world/soccer/generate';
@@ -88,7 +87,7 @@ describe('soccer set pieces, cards, injuries, momentum, shootouts (S4)', () => {
     fc.assert(
       fc.property(fc.integer({ min: 0, max: 100_000 }), (i) => {
         const r = match(i, true);
-        const winner = getSport('soccer').summarize(r).winnerId;
+        const winner = r.shootout?.winnerId ?? (r.homeScore > r.awayScore ? r.homeId : r.awayScore > r.homeScore ? r.awayId : null);
         expect(winner).not.toBeNull();
         if (r.homeScore === r.awayScore) {
           expect(r.shootout).toBeDefined();

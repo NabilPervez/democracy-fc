@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { simulateSoccer } from '../src/engine/soccer/game';
 import { selectLineup } from '../src/engine/soccer/lineup';
 import { soccerBoxScore } from '../src/engine/soccer/boxScore';
-import { getSport } from '../src/engine/core/registry';
+import { starGroups } from '../src/engine/soccer/sport';
 import { generateSoccerLeague } from '../src/world/soccer/generate';
 
 const sources = import.meta.glob('../src/engine/soccer/*.ts', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
@@ -62,15 +62,12 @@ describe('soccer engine determinism', () => {
     }
   });
 
-  it('is registered as the soccer sport, allows draws, and its box score adds up', () => {
-    const sport = getSport('soccer');
-    expect(sport.allowsDraws).toBe(true);
+  it('box score adds up and Keeping stars only show on keepers', () => {
     const league = generateSoccerLeague({ seed: 'box', teamCount: 8 });
-    const r = sport.simulate(league, { id: 'b1', day: 1, homeId: 't1', awayId: 't2' }, { seasonId: 1, engineVersion: 1 });
+    const r = simulateSoccer(league, { id: 'b1', day: 1, homeId: 't1', awayId: 't2' });
     const box = soccerBoxScore(r);
-    const goals = Object.values(box).reduce((s, l) => s + l.goals, 0);
-    expect(goals).toBe(r.homeScore + r.awayScore);
-    expect(Object.keys(sport.starGroups(league.players[league.teams[0].squad[0]]))).toContain('keeping');
-    expect(Object.keys(sport.starGroups(league.players[league.teams[0].squad[4]]))).not.toContain('keeping');
+    expect(Object.values(box).reduce((s, l) => s + l.goals, 0)).toBe(r.homeScore + r.awayScore);
+    expect(Object.keys(starGroups(league.players[league.teams[0].squad[0]]))).toContain('keeping');
+    expect(Object.keys(starGroups(league.players[league.teams[0].squad[4]]))).not.toContain('keeping');
   });
 });
