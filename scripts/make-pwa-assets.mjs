@@ -19,7 +19,7 @@ async function renderSvg(svg, size, file, { transparent = false } = {}) {
 // Fonts are downloaded once and inlined, so rendering never waits on the network.
 async function fontCss() {
   const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
-  const css = await (await fetch('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Inter:wght@400;600&display=block', { headers: { 'User-Agent': ua } })).text();
+  const css = await (await fetch('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=block', { headers: { 'User-Agent': ua } })).text();
   let out = css;
   for (const url of new Set(css.match(/https:[^)]+.woff2/g) ?? [])) {
     const b64 = Buffer.from(await (await fetch(url)).arrayBuffer()).toString('base64');

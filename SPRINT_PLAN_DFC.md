@@ -259,3 +259,11 @@ Direction from the owner (2026-10-07): Democracy FC is a new product; legacy bas
 - **Getting started checklist** on the Bulletin (top, until done or hidden): vote a tactic, vote a captain, make a prediction, watch a match, back a player, fade a player, vote in a facility election. Each step ticks itself off from the save (`world/soccer/checklist.ts`), has a "?" explaining why and a **Show me** button that jumps to the right place. Finishing all seven pays **50 coins** (once); "Hide" dismisses it.
 - **Tooltips throughout** (`ui/soccer/help.ts`, one source of wording): coins, The Director, Matchday Ballot, tactic, scouting, captain, prediction odds and rewards, extra markets, picks, facility election, helps/hurts, coalition shares, vote pricing, the table's playoff and Ejection lines, Style, fan base, home arena, playoff bracket, fouls and Spot Kicks, possessions, phases of play, speeds, momentum, the Sub-Level Archive, Awakenings, personas — on top of the star-group, Drive, stat and table-column tips from S10.
 - `tests/checklist.test.ts`. 88 tests pass.
+
+## S13 — Visual redesign: dark, green-forward, jewel tones, mobile-first — ✅
+- New single design system `src/ui/theme.css` (replaces the inherited Blastball stylesheet and the light overrides): near-black green base, layered surfaces, bright emerald primary (#1ED47C) with sapphire, amethyst, ruby and topaz accents; pill buttons and chips; gradient hero bands.
+- Modern font: **Plus Jakarta Sans** (heavy weights for headings, sentence case — no condensed all-caps) + **JetBrains Mono** for the Director.
+- Mobile portrait fixes for things breaking onto new lines: chip rows scroll sideways instead of wrapping; ballot rows keep name + vote button on one line (details clamp to two lines below); compact vote labels; club names only in the table so all columns fit; heading + day picker share a row; the match console can no longer overflow the screen; brand mark fixed.
+- Bulletin hero shows your club's crest, name, city, rank and persona.
+- Arena and match colours retuned for dark (your club green, opponent amethyst, blocks sapphire, set pieces topaz).
+- Splash screens, share image and install screenshots regenerated.

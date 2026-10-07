@@ -2,14 +2,14 @@
 // Mark: a gold club shield on pitch green, carrying a ballot check whose tip is a ball — vote + football club.
 
 export const COLORS = {
-  base: '#F7F5F0',
+  base: '#0A0F0C',
   surface: '#0C1D13',
   green: '#1E9E57',
   greenDeep: '#0B3D23',
   gold: '#F2C230',
   goldDeep: '#B8860B',
-  text: '#1B1F2A',
-  muted: '#5F6675',
+  text: '#F4F7F5',
+  muted: '#9FABA4',
 };
 
 const SHIELD = 'M256 92 L388 136 C388 252 352 344 256 412 C160 344 124 252 124 136 Z';
@@ -71,12 +71,12 @@ export function shortcutSvg(glyph) {
 }
 
 const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Inter:wght@400;600&display=block" rel="stylesheet">`;
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=block" rel="stylesheet">`;
 
 const page = (w, h, body, extraCss = '') => `<!doctype html><html><head><meta charset="utf-8">${FONTS}<style>
-  html,body{margin:0;width:${w}px;height:${h}px;overflow:hidden;background:${COLORS.base};color:${COLORS.text};font-family:Inter,system-ui,sans-serif}
-  .word{font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:.02em;line-height:.9}
-  .word span{color:${COLORS.green}}
+  html,body{margin:0;width:${w}px;height:${h}px;overflow:hidden;background:${COLORS.base};color:${COLORS.text};font-family:'Plus Jakarta Sans',system-ui,sans-serif}
+  .word{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;letter-spacing:-.03em;line-height:.95}
+  .word span{color:#1ED47C}
   .glow{position:absolute;inset:0;background:radial-gradient(60% 45% at 50% 42%, rgba(30,158,87,.35), transparent 70%)}
   ${extraCss}
 </style></head><body>${body}</body></html>`;

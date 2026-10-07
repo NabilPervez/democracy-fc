@@ -82,12 +82,11 @@ export function Facility() {
   return (
     <section aria-labelledby="facility-h">
       <div className="screen-head hero">
-        <p className="eyebrow">
-          The Assembly · Season {u.season} · <Tip label="How the table works" text={HELP.table} />
-        </p>
+        <p className="eyebrow">The Assembly · Season {u.season}</p>
         <h1 id="facility-h">Facility</h1>
         <p className="muted small">
-          The top {playoffSize(u)} reach the playoffs (gold line). Below the red dashed line, clubs are Ejected from the facility at season's end.
+          Top {playoffSize(u)} make the playoffs · bottom {u.ejections} {u.ejections === 1 ? 'is' : 'are'} Ejected ·{' '}
+          <Tip label="How it works" text={`${HELP.table} P played, W won (3 pts), D drawn (1 pt), L lost, GD goal difference, Pts points.`} />
         </p>
       </div>
       <div className="table-wrap card">
@@ -96,12 +95,12 @@ export function Facility() {
             <tr>
               <th>#</th>
               <th className="club">Club</th>
-              <th><Tip label="P" text="Played: league matches so far." /></th>
-              <th><Tip label="W" text="Won: 3 points each." /></th>
-              <th><Tip label="D" text="Drawn: 1 point each. League matches can end level; knockout matches can't." /></th>
-              <th><Tip label="L" text="Lost: no points." /></th>
-              <th><Tip label="GD" text="Goal difference: goals scored minus goals conceded. Breaks ties on points." /></th>
-              <th><Tip label="Pts" text="Points: 3 for a win, 1 for a draw. The table is sorted by these." /></th>
+              <th title="Played">P</th>
+              <th title="Won (3 points)">W</th>
+              <th title="Drawn (1 point)">D</th>
+              <th title="Lost">L</th>
+              <th title="Goal difference">GD</th>
+              <th title="Points">Pts</th>
             </tr>
           </thead>
           <tbody>
@@ -113,7 +112,7 @@ export function Facility() {
                   <td className="club">
                     <button className="club-btn" onClick={() => showDetail({ kind: 'club', id: c.id })}>
                       <Crest team={c} size={22} />
-                      {c.city} {c.name}
+                      <span title={`${c.city} ${c.name}`}>{c.name}</span>
                     </button>
                   </td>
                   <td>{r.wins + r.draws + r.losses}</td>
@@ -428,9 +427,9 @@ export function VoteScreen() {
           Every club's fans vote for what helps their club. Your votes join the {mine.team.name} bloc. <Tip label="Votes cost 2×n² coins" text={HELP.voteCost} />{u.persona === 'organizer' ? ' (20% off: Organizer)' : ''}.
         </p>
       </div>
-      <label className="small muted" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <label className="stake">
         Votes to add
-        <input type="number" min={1} value={count} onChange={(ev) => setCount(Math.max(1, Math.floor(Number(ev.target.value) || 1)))} style={{ width: 70, minHeight: 36, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 8, padding: '0 8px' }} />
+        <input type="number" min={1} value={count} onChange={(ev) => setCount(Math.max(1, Math.floor(Number(ev.target.value) || 1)))} />
       </label>
       <div style={{ display: 'grid', gap: 10 }}>
         {e.proposals.map((p, i) => {
@@ -443,7 +442,7 @@ export function VoteScreen() {
           const share = Math.round((totals[i] * 100) / sum);
           return (
             <div key={p.id} className="card proposal">
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
+              <div className="proposal-head">
                 <h3>{p.title}</h3>
                 <Tip label={tag === 'helps' ? 'Helps your club' : tag === 'hurts' ? 'Hurts your club' : 'Neutral for you'} text={HELP.helpsHurts}>
                   <span className={`badge ${tag}`}>{tag === 'helps' ? 'Helps your club' : tag === 'hurts' ? 'Hurts your club' : 'Neutral for you'}</span>

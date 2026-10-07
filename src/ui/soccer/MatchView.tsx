@@ -29,16 +29,16 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 const PHASE_COLOR: Record<Phase, string> = {
-  buildUp: '#6EE7B7', progression: '#10B981', creation: '#047857', highBlock: '#CBD5E1', midBlock: '#94A3B8', lowBlock: '#64748B',
-  attTransition: '#1B1F2A', defTransition: '#475569', attSetPiece: '#F59E0B', defSetPiece: '#B45309',
+  buildUp: '#7DF0B4', progression: '#1ED47C', creation: '#0E9F5C', highBlock: '#8FB4FF', midBlock: '#5B8CFF', lowBlock: '#3554A8',
+  attTransition: '#FFFFFF', defTransition: '#9FABA4', attSetPiece: '#FFC845', defSetPiece: '#C9952A',
 };
 
 /** Log tags (mockup): what kind of moment each line is. */
 type Tag = 'pos' | 'tr' | 'set' | 'shot' | 'goal' | 'card' | 'dir' | 'sig';
 const TAG: Record<Tag, { label: string; color: string }> = {
   pos: { label: 'Open play', color: 'var(--primary)' },
-  tr: { label: 'Transition', color: '#334155' },
-  set: { label: 'Set piece', color: '#B45309' },
+  tr: { label: 'Transition', color: '#FFFFFF' },
+  set: { label: 'Set piece', color: 'var(--gold)' },
   shot: { label: 'Shot', color: 'var(--secondary)' },
   goal: { label: 'Goal', color: 'var(--primary)' },
   card: { label: 'Foul', color: 'var(--bad)' },
@@ -60,7 +60,7 @@ function tagOf(e: SoccerEvent): Tag {
 
 /** A chip per team (mockup): the phase, plus what they're doing right now. */
 function TeamChip({ name, color, phase, sub }: { name: string; color: string; phase: Phase | null; sub: string }) {
-  const c = !phase ? color : /Transition/.test(phase) ? '#334155' : /SetPiece/.test(phase) ? 'var(--amber)' : /Block/.test(phase) ? 'var(--steel)' : color;
+  const c = !phase ? color : /Transition/.test(phase) ? '#FFFFFF' : /SetPiece/.test(phase) ? 'var(--gold)' : /Block/.test(phase) ? 'var(--sapphire)' : color;
   return (
     <div className="arena-chip" style={{ ['--c' as string]: c }}>
       <small>{name}</small>
@@ -231,7 +231,7 @@ export function MatchView({ gameId }: { gameId: string }) {
           ◀
         </button>
         <button
-          className={playing && speed !== 'instant' ? 'on' : ''}
+          className="play"
           onClick={() => {
             if (playing) return setPlaying(false);
             if (shownCursor >= end) setCursor(0);
@@ -250,15 +250,16 @@ export function MatchView({ gameId }: { gameId: string }) {
             setCursor(0);
             setPlaying(true);
           }}
+          aria-label="Restart"
         >
-          Restart
+          ↺
         </button>
         <span className="poss">
           <Tip label={`Possession ${possessionOf[line.index]} of ${finished ? possessionOf[events.length - 1] : '…'}`} text={HELP.possession} />
         </span>
       </div>
-      <p className="small muted" style={{ margin: 0 }}>
-        <Tip label="What are these?" text={HELP.phases} /> <Tip label="Speeds" text={HELP.speed} /> <Tip label={`Momentum ${frame.momentum === 0 ? 'even' : frame.momentum > 0 ? home.abbr : away.abbr}`} text={HELP.momentum} />
+      <p className="arena-help">
+        <Tip label="Phases" text={HELP.phases} /> <Tip label="Speeds" text={HELP.speed} /> <Tip label={`Momentum ${frame.momentum === 0 ? 'even' : frame.momentum > 0 ? home.abbr : away.abbr}`} text={HELP.momentum} />
       </p>
       <div className="speed-row" role="group" aria-label="Speed">
         {SPEEDS.map((s) => (
@@ -270,9 +271,9 @@ export function MatchView({ gameId }: { gameId: string }) {
 
       <div className="legend">
         <span><i style={{ background: VIEW_COLOR }} />In possession</span>
-        <span><i style={{ background: 'var(--steel)' }} />Defensive block</span>
-        <span><i style={{ background: '#334155' }} />Transition</span>
-        <span><i style={{ background: 'var(--amber)' }} />Set piece</span>
+        <span><i style={{ background: 'var(--sapphire)' }} />Defensive block</span>
+        <span><i style={{ background: '#FFFFFF' }} />Transition</span>
+        <span><i style={{ background: 'var(--gold)' }} />Set piece</span>
         <span><i style={{ background: 'var(--accent)' }} />Facility</span>
       </div>
 

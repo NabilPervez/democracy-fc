@@ -35,16 +35,19 @@ export function Bulletin() {
 
   return (
     <section aria-labelledby="bulletin-h">
-      <div className="screen-head hero">
-        <p className="eyebrow">
-          Season {u.season} · {u.phase === 'regular' ? `Matchday ${u.currentDay} of ${regularDays(u)}` : u.phase === 'playoffs' ? 'Knockout' : 'Offseason'}
-        </p>
-        <h1 id="bulletin-h">Bulletin</h1>
-        <p className="muted">
-          You support the <strong>{club.city} {club.name}</strong>
-          {u.phase !== 'offseason' && rank && Object.keys(u.results).length ? ` · ${ordinal(rank)} of ${table.length}` : ''}.
-          {persona && <> {persona.icon} {persona.name}.</>}
-        </p>
+      <div className="hero-band">
+        <Crest team={club} size={64} />
+        <div className="hero-text">
+          <p className="eyebrow">
+            Season {u.season} · {u.phase === 'regular' ? `Matchday ${u.currentDay}/${regularDays(u)}` : u.phase === 'playoffs' ? 'Knockout' : 'Offseason'}
+          </p>
+          <h1 id="bulletin-h">{club.name}</h1>
+          <p className="sub">
+            {club.city}
+            {u.phase !== 'offseason' && rank && Object.keys(u.results).length ? ` · ${ordinal(rank)} of ${table.length}` : ''}
+            {persona ? ` · ${persona.icon} ${persona.name}` : ''}
+          </p>
+        </div>
       </div>
 
       <Digest />
@@ -279,11 +282,11 @@ function MatchdayBallot({ gameId }: { gameId: string }) {
   const nextCost = (question: 'tactic' | 'captain') => ballotVoteCost(my[question], 1);
   const voteLabel = (question: 'tactic' | 'captain') => {
     const c = nextCost(question);
-    return c === 0 ? 'Vote (free)' : `+1 vote · ${c}◈`;
+    return c === 0 ? 'Vote' : `+1 · ${c}◈`;
   };
 
   return (
-    <div className="card ballot" style={{ marginTop: 12 }} aria-labelledby="ballot-h">
+    <div className="card ballot" aria-labelledby="ballot-h">
       <div>
         <p className="eyebrow">
           <Tip label="Matchday Ballot" text={HELP.ballot} /> · closes at kickoff
@@ -314,7 +317,7 @@ function MatchdayBallot({ gameId }: { gameId: string }) {
               <div key={id} className={`ballot-option ${my.tactic[i] ? 'mine' : ''}`}>
                 <span>
                   <strong>{t.name}</strong>
-                  {my.tactic[i] ? <span className="muted small"> · your votes: {my.tactic[i]}</span> : null}
+                  {my.tactic[i] ? <span className="meta"> · {my.tactic[i]} vote{my.tactic[i] === 1 ? '' : 's'}</span> : null}
                 </span>
                 <button className="chip" disabled={!!err} title={err ?? undefined} onClick={() => vote('tactic', i)} aria-label={`Vote ${t.name}`}>
                   {voteLabel('tactic')}
@@ -343,13 +346,20 @@ function MatchdayBallot({ gameId }: { gameId: string }) {
             return (
               <div key={id} className={`ballot-option ${my.captain[i] ? 'mine' : ''}`}>
                 <span>
-                  <strong>{p.name}</strong> <span className="muted small">{POSITION_LABEL[p.position]} · {DRIVE_INFO[p.drive].icon} {DRIVE_INFO[p.drive].label}</span>
-                  {streak >= 5 && <span className="badge helps" style={{ marginLeft: 6 }}>Fan Favorite</span>}
-                  {my.captain[i] ? <span className="muted small"> · your votes: {my.captain[i]}</span> : null}
+                  <strong>{p.name}</strong>
+                  <span className="meta">
+                    {' '}
+                    · {p.position} {DRIVE_INFO[p.drive].icon}
+                    {streak >= 5 ? ' · ★ Fan Favorite' : ''}
+                    {my.captain[i] ? ` · ${my.captain[i]} vote${my.captain[i] === 1 ? '' : 's'}` : ''}
+                  </span>
                 </span>
                 <button className="chip" disabled={!!err} title={err ?? undefined} onClick={() => vote('captain', i)} aria-label={`Vote ${p.name} captain`}>
                   {voteLabel('captain')}
                 </button>
+                <span className="why">
+                  {POSITION_LABEL[p.position]} · {DRIVE_INFO[p.drive].label}: {DRIVE_INFO[p.drive].text}
+                </span>
                 <span className="lean-bar fans" aria-label={`${share}% of your club's fans`}>
                   <span style={{ width: `${share}%` }} />
                 </span>
@@ -399,9 +409,9 @@ function Prediction({ gameId }: { gameId: string }) {
         Coins are earned, never bought.{' '}
         {existing.length ? `You predicted: ${existing.map((b) => `${b.teamId === DRAW_PICK ? 'a draw' : predictionLabel(u, b)} (${b.amount}◈)`).join(', ')}.` : ''}
       </p>
-      <label className="small muted" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <label className="stake">
         Stake
-        <input type="number" min={1} max={u.coins} value={stake} onChange={(e) => setStake(Math.max(1, Math.floor(Number(e.target.value) || 1)))} style={{ width: 80, minHeight: 36, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 8, padding: '0 8px' }} />
+        <input type="number" min={1} max={u.coins} value={stake} onChange={(e) => setStake(Math.max(1, Math.floor(Number(e.target.value) || 1)))} />
         coins
       </label>
       <div className="predict-row">
