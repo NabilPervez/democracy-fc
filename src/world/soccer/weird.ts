@@ -22,6 +22,16 @@ export interface SoccerModDef {
   delta: SoccerDelta;
   innate?: boolean;
   returnedOnly?: boolean;
+  /** Only ever made by fusing two other traits. */
+  comboOnly?: boolean;
+  /** Bends the career arc: `shift` is added to each season's development, `delay` postpones decline and retirement (years). */
+  aging?: { shift?: number; delay?: number };
+}
+
+/** Two traits on one player fuse into a stronger one. */
+export interface ComboDef {
+  needs: [string, string];
+  result: string;
 }
 
 interface ModEventDef {
@@ -29,7 +39,8 @@ interface ModEventDef {
   weight: number;
   minChaos: Chaos;
   mod: string;
-  durationDays: [number, number];
+  /** null = a permanent gift. */
+  durationDays: [number, number] | null;
   text: string;
 }
 
@@ -50,7 +61,8 @@ export interface FacilityEventDef {
 }
 
 export const SOCCER_MODS = pack.playerMods as SoccerModDef[];
-const MOD_EVENTS = pack.events as ModEventDef[];
+export const COMBOS = pack.combos as ComboDef[];
+const MOD_EVENTS = pack.events as unknown as ModEventDef[];
 export const FACILITY_EVENTS = pack.facilityEvents as FacilityEventDef[];
 export const VANISH_PER_SEASON = pack.vanishPerSeason as Record<Chaos, number>;
 const MOD_BY_ID = new Map(SOCCER_MODS.map((m) => [m.id, m]));
@@ -103,8 +115,8 @@ export function rollSoccerDay(input: DayRollInput): SoccerHappening[] {
     const ev = weighted(rng, MOD_EVENTS.filter((e) => atLeast(input.chaos, e.minChaos)));
     if (ev) {
       const playerId = rng.pick(players);
-      const days = rng.range(ev.durationDays[0], ev.durationDays[1]);
-      out.push({ type: 'mod', playerId, mod: { id: ev.mod, season: input.season, untilDay: input.day + days }, text: fill(ev.text, { player: name(playerId) }) });
+      const untilDay = ev.durationDays ? input.day + rng.range(ev.durationDays[0], ev.durationDays[1]) : null;
+      out.push({ type: 'mod', playerId, mod: { id: ev.mod, season: input.season, untilDay }, text: fill(ev.text, { player: name(playerId) }) });
     }
   }
   // Vanish rate is per season; spread over the season's days. Per hundred-thousand for precision.
@@ -162,5 +174,36 @@ export function facilityEventsFor(seed: string, season: number, game: SoccerFixt
   }
   if (def.echoGoal) out.echoGoal = true;
   out.events.push({ eventId: def.id, text });
+  return out;
+}
+
+/** Fuse any two traits that make a combo. Returns the new list and the combos formed (pure). */
+export function fuseTraits(list: ActiveMod[], season: number): { mods: ActiveMod[]; fused: ComboDef[] } {
+  let mods = [...list];
+  const fused: ComboDef[] = [];
+  for (const c of COMBOS) {
+    const [a, b] = c.needs;
+    if (mods.some((m) => m.id === a) && mods.some((m) => m.id === b) && !mods.some((m) => m.id === c.result)) {
+      mods = mods.filter((m) => m.id !== a && m.id !== b);
+      mods.push({ id: c.result, season, untilDay: null });
+      fused.push(c);
+    }
+  }
+  return { mods, fused };
+}
+
+/** Combos a trait can be part of (for the player card). */
+export const combosWith = (id: string) => COMBOS.filter((c) => c.needs.includes(id));
+
+/** Born-with traits for new players: about four in ten get one, a few get two. Permanent. */
+export function bornWith(seed: string, playerId: string, season = 1): ActiveMod[] {
+  const rng = createRng(seed, 'born-with', playerId);
+  const innate = SOCCER_MODS.filter((m) => m.innate);
+  const count = rng.chance(380) ? (rng.chance(180) ? 2 : 1) : 0;
+  const out: ActiveMod[] = [];
+  while (out.length < count) {
+    const id = rng.pick(innate).id;
+    if (!out.some((m) => m.id === id)) out.push({ id, season, untilDay: null });
+  }
   return out;
 }

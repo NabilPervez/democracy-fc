@@ -22,6 +22,8 @@ import type { MatchRules } from '../../engine/soccer/game';
 import type { Clock } from '../clock';
 import { personaReward, personaVoteCost, type PersonaId } from './persona';
 import { CHECKLIST_REWARD, checklistDone } from './checklist';
+import { agePlayer, ageRatingOffset, agingOf, development, initialAge, perkDeltas, retirementChance, rookieAge } from './identity';
+import { bornWith, fuseTraits, soccerMod } from './weird';
 import { getTactic } from '../../engine/soccer/tactics';
 import { phaseStats } from '../../engine/soccer/phase';
 import {
@@ -128,7 +130,7 @@ export interface NewsLine {
   director?: boolean;
 }
 
-export type SoccerTimelineKind = 'vanish' | 'return' | 'awakening' | 'champion' | 'ejection' | 'clubSwitch' | 'election';
+export type SoccerTimelineKind = 'vanish' | 'return' | 'awakening' | 'champion' | 'ejection' | 'clubSwitch' | 'election' | 'retirement';
 
 export interface SoccerSeasonRecord {
   season: number;
@@ -207,7 +209,19 @@ export interface SoccerUniverse {
   picksLifetime: number;
   /** The getting-started checklist reward has been claimed (or the checklist dismissed). */
   checklistClaimed?: boolean;
+  /** Player ages (careers: rising → prime → fading → declining). */
+  ages: Record<string, number>;
+  /** Seasons each player has finished in the facility. */
+  experience: Record<string, number>;
+  /** Retired players, newest last. */
+  retired: { player: SoccerPlayer; teamId: string; season: number; age: number }[];
+  /** The fan's card collection. */
+  collection: { playerId: string; season: number; day: number }[];
 }
+
+/** Credibility for a correct call: bolder calls (lower chance) earn more. Predictions never cost anything. */
+export const PREDICTION_BASE = 5;
+export const predictionReward = (multMilli: number) => Math.max(1, Math.round((PREDICTION_BASE * multMilli) / 1000));
 
 export const BACK_SLOTS = 3;
 export const FADE_SLOTS = 2;
@@ -234,14 +248,15 @@ export type SoccerWorldEvent =
   | { type: 'matchStarted'; gameId: string }
   | { type: 'matchPlayed'; summary: SoccerMatchSummary; box: Record<string, SoccerStatLine>; injuries: Record<string, number>; awakenings: string[]; relations: RelationPairs }
   | { type: 'happening'; happening: SoccerHappening }
-  | { type: 'betPlaced'; gameId: string; teamId: string; amount: number }
-  | { type: 'sidePrediction'; gameId: string; market: SideMarket; pick: string; amount: number }
+  | { type: 'betPlaced'; gameId: string; teamId: string }
+  | { type: 'sidePrediction'; gameId: string; market: SideMarket; pick: string }
   | { type: 'clubSwitched'; clubId: string }
   | { type: 'votesBought'; electionId: number; proposal: number; count: number }
   | { type: 'ballotVote'; gameId: string; question: BallotQuestion; option: number; count: number }
   | { type: 'personaChosen'; persona: PersonaId }
   | { type: 'pickSet'; playerId: string; kind: 'back' | 'fade' | null }
   | { type: 'checklistClaimed' }
+  | { type: 'cardToggled'; playerId: string }
   | { type: 'checklistDismissed' }
   | { type: 'timeSettingsChanged'; timeMode: 'manual' | 'living'; dayLengthMinutes: number; nowMs: number }
   | { type: 'clockSet'; clock: Clock }
@@ -283,7 +298,11 @@ export const regularDays = (s: SoccerUniverse) => roundsFor(s.league.teams.lengt
 export const playoffSize = (s: SoccerUniverse) => Math.min(s.settings.playoffTeams ?? 4, s.league.teams.length) as 4 | 8;
 
 export function createSoccerUniverse(id: string, settings: SoccerSettings, favoriteClubId: string | null, now: number): SoccerUniverse {
-  const league = generateSoccerLeague({ seed: settings.seed, name: settings.name, teamCount: settings.leagueSize });
+  const generated = generateSoccerLeague({ seed: settings.seed, name: settings.name, teamCount: settings.leagueSize });
+  // A new facility is mid-history: each player is somewhere in their career arc.
+  const ages = Object.fromEntries(Object.keys(generated.players).map((pid) => [pid, initialAge(pid)]));
+  const league = { ...generated, players: Object.fromEntries(Object.values(generated.players).map((p) => [p.id, agePlayer(p, ageRatingOffset(ages[p.id]))])) };
+  const born = Object.fromEntries(Object.keys(league.players).map((pid) => [pid, bornWith(settings.seed, pid)]).filter(([, m]) => m.length));
   const fav = favoriteClubId && league.teams.some((t) => t.id === favoriteClubId) ? favoriteClubId : league.teams[0].id;
   return {
     saveVersion: SOCCER_SAVE_VERSION,
@@ -311,7 +330,7 @@ export function createSoccerUniverse(id: string, settings: SoccerSettings, favor
     favoriteClubId: fav,
     lastClubSwitchSeason: null,
     clubHistory: [{ clubId: fav, fromSeason: 1 }],
-    mods: {},
+    mods: born,
     injuries: {},
     vanished: [],
     awakenings: [],
@@ -330,6 +349,10 @@ export function createSoccerUniverse(id: string, settings: SoccerSettings, favor
     persona: null,
     picks: { back: [], fade: [] },
     picksLifetime: 0,
+    ages,
+    experience: Object.fromEntries(Object.entries(ages).map(([pid, a]) => [pid, Math.max(0, a - 18 - createRng(pid, 'debut').int(3))])),
+    retired: [],
+    collection: [],
   };
 }
 
@@ -439,6 +462,9 @@ export function matchInputs(s: SoccerUniverse, game: SoccerFixture): { opts: Soc
       }
     }
   }
+  // Club and pitch power-ups (identity): every match, home-only ones at home.
+  addDelta(game.homeId, perkDeltas(s.settings.seed, game.homeId, true));
+  addDelta(game.awayId, perkDeltas(s.settings.seed, game.awayId, false));
   for (const c of s.clubEffects) {
     if (c.matchesLeft <= 0 || (c.clubId !== game.homeId && c.clubId !== game.awayId)) continue;
     if (c.arenaId) arenaId = c.arenaId;
@@ -471,16 +497,14 @@ export function simulateMatch(s: SoccerUniverse, gameId: string): SoccerResult {
 /** Recreate a match's play-by-play (valid for today's matches; earlier ones live in the pbp store). */
 export const replaySoccerMatch = (s: SoccerUniverse, gameId: string) => simulateMatch(s, gameId).events;
 
-export function betError(s: SoccerUniverse, gameId: string, teamId: string, amount: number): string | null {
+export function betError(s: SoccerUniverse, gameId: string, teamId: string): string | null {
   const game = s.schedule.find((g) => g.id === gameId);
   if (!game) return 'No such match.';
   if (game.day !== s.currentDay) return "You can only make predictions on today's matches.";
   if (s.results[gameId] || s.started.includes(gameId)) return 'Predictions are closed: this match has kicked off.';
   if (teamId !== DRAW_PICK && teamId !== game.homeId && teamId !== game.awayId) return "That club isn't in this match.";
   if (isKnockout(s, gameId) && teamId === DRAW_PICK) return 'Knockout matches always have a winner.';
-  if (!Number.isInteger(amount) || amount < 1) return 'Stake at least 1 coin.';
-  if (amount > s.coins) return 'Not enough coins.';
-  if (s.bets.some((b) => b.season === s.season && b.gameId === gameId && !b.market && b.teamId !== teamId)) return 'You already made a different prediction for this match.';
+  if (s.bets.some((b) => b.season === s.season && b.gameId === gameId && !b.market)) return 'You already made your call for this match.';
   return null;
 }
 
@@ -528,15 +552,13 @@ export function sidePm(s: SoccerUniverse, gameId: string, market: SideMarket, pi
   return o.firstScorer[pick] ?? null;
 }
 
-export function sidePredictionError(s: SoccerUniverse, gameId: string, market: SideMarket, pick: string, amount: number): string | null {
+export function sidePredictionError(s: SoccerUniverse, gameId: string, market: SideMarket, pick: string): string | null {
   const game = s.schedule.find((g) => g.id === gameId);
   if (!game) return 'No such match.';
   if (game.day !== s.currentDay) return "You can only make predictions on today's matches.";
   if (s.results[gameId] || s.started.includes(gameId)) return 'Predictions are closed: this match has kicked off.';
   if (sidePm(s, gameId, market, pick) === null) return 'That pick is not on offer.';
-  if (!Number.isInteger(amount) || amount < 1) return 'Stake at least 1 coin.';
-  if (amount > s.coins) return 'Not enough coins.';
-  if (s.bets.some((b) => b.season === s.season && b.gameId === gameId && b.market === market && b.teamId !== pick)) return 'You already made a different prediction in this market.';
+  if (s.bets.some((b) => b.season === s.season && b.gameId === gameId && b.market === market)) return 'You already made this call.';
   return null;
 }
 
@@ -547,7 +569,7 @@ export function predictionLabel(s: SoccerUniverse, b: Pick<SoccerBet, 'market' |
   return `${s.league.players[b.teamId]?.name ?? 'a player'} scores first`;
 }
 
-/** §B2: switch supported club at most once per season; it costs every coin. */
+/** §B2: switch supported club at most once per season; it costs all your credibility (it stays with the old fan base). */
 export function clubSwitchError(s: SoccerUniverse, clubId: string): string | null {
   if (!clubOf(s, clubId)) return 'No such club.';
   if (clubId === s.favoriteClubId) return 'You already support this club.';
@@ -584,8 +606,8 @@ function settleBets(s: SoccerUniverse, summary: SoccerMatchSummary): SoccerUnive
     const right = b.market ? sideWinner[b.market] === b.teamId : b.teamId === winner;
     if (!right) return { ...b, status: 'lost', payout: 0 };
     const mult = personaReward(s.persona, b.multMilli, b.pm, !b.market && b.teamId === s.favoriteClubId);
-    const payout = Math.floor((b.amount * mult) / 1000);
-    next = { ...next, coins: next.coins + payout, ledger: withLedger(next, payout, `Prediction right: ${predictionLabel(s, b)}`) };
+    const payout = predictionReward(mult);
+    next = { ...next, coins: next.coins + payout, ledger: withLedger(next, payout, `Called it: ${predictionLabel(s, b)}`) };
     return { ...b, status: 'won', payout };
   });
   return { ...next, bets };
@@ -601,13 +623,18 @@ function applyHappening(s: SoccerUniverse, h: SoccerHappening): SoccerUniverse {
   const player = s.league.players[h.playerId];
   if (!player) return s;
   if (h.type === 'mod') {
-    return { ...s, mods: { ...s.mods, [h.playerId]: [...(s.mods[h.playerId] ?? []), h.mod] }, news: withNews(s, [h.text]) };
+    if ((s.mods[h.playerId] ?? []).some((m) => m.id === h.mod.id)) return s;
+    const { mods, fused } = fuseTraits([...(s.mods[h.playerId] ?? []), h.mod], s.season);
+    const lines = [h.text, ...fused.map((c) => `${player.name}'s ${soccerMod(c.needs[0])?.name} and ${soccerMod(c.needs[1])?.name} fused into ${soccerMod(c.result)?.name}.`)];
+    const next = { ...s, mods: { ...s.mods, [h.playerId]: mods }, news: withNews(s, lines) };
+    return fused.length ? { ...next, timeline: withTimeline(next, 'awakening', lines[1]) } : next;
   }
   // Vanished: taken to the Sub-Levels, replaced in the squad by a new arrival.
   const team = clubOf(s, player.teamId);
   if (!team) return s;
   const replacementId = `${team.id}s${s.season}d${s.currentDay}v`;
   const replacement = freshPlayer(s, 'arrival', replacementId, team.id, player.position);
+  const arrivalTraits = bornWith(s.settings.seed, replacementId, s.season);
   const players = { ...s.league.players, [replacementId]: replacement };
   delete players[h.playerId];
   const teams = s.league.teams.map((t) => (t.id === team.id ? { ...t, squad: t.squad.map((id) => (id === h.playerId ? replacementId : id)) } : t));
@@ -616,6 +643,8 @@ function applyHappening(s: SoccerUniverse, h: SoccerHappening): SoccerUniverse {
     ...s,
     league: { ...s.league, teams, players },
     vanished: [...s.vanished, { player, season: s.season, day: s.currentDay, cause: h.cause }],
+    ages: { ...s.ages, [replacementId]: rookieAge(replacementId) + 2 },
+    mods: arrivalTraits.length ? { ...s.mods, [replacementId]: arrivalTraits } : s.mods,
     injuries: Object.fromEntries(Object.entries(s.injuries).filter(([id]) => id !== h.playerId)),
     news: withNews(s, [{ text: `Director: ${text}`, director: true }, `${replacement.name} arrives at the ${team.name} Wing to take the empty bunk.`]),
     timeline: withTimeline(s, 'vanish', text),
@@ -681,35 +710,28 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
       return applyHappening(state, event.happening);
 
     case 'betPlaced': {
-      const { gameId, teamId, amount } = event;
-      if (betError(state, gameId, teamId, amount)) return state;
+      const { gameId, teamId } = event;
+      if (betError(state, gameId, teamId)) return state;
       const odds = matchOdds(state, gameId);
       const game = state.schedule.find((g) => g.id === gameId)!;
       const [pm, mult] = teamId === DRAW_PICK ? [odds.drawPm, odds.drawMult] : teamId === game.homeId ? [odds.homePm, odds.homeMult] : [odds.awayPm, odds.awayMult];
-      const existing = state.bets.find((b) => b.season === state.season && b.gameId === gameId && !b.market && b.teamId === teamId);
-      const bets = existing
-        ? state.bets.map((b) => (b === existing ? { ...b, amount: b.amount + amount, multMilli: Math.floor((b.amount * b.multMilli + amount * mult) / (b.amount + amount)) } : b))
-        : [...state.bets, { id: `${state.season}-${gameId}-${teamId}`, gameId, day: state.currentDay, teamId, amount, multMilli: mult, pm, status: 'open' as const, payout: 0, season: state.season }];
-      return { ...state, coins: state.coins - amount, bets, ledger: withLedger(state, -amount, `Prediction: ${clubName(state, teamId)}`) };
+      const call: SoccerBet = { id: `${state.season}-${gameId}-${teamId}`, gameId, day: state.currentDay, teamId, amount: 0, multMilli: mult, pm, status: 'open', payout: 0, season: state.season };
+      return { ...state, bets: [...state.bets, call] };
     }
 
     case 'sidePrediction': {
-      const { gameId, market, pick, amount } = event;
-      if (sidePredictionError(state, gameId, market, pick, amount)) return state;
+      const { gameId, market, pick } = event;
+      if (sidePredictionError(state, gameId, market, pick)) return state;
       const pm = sidePm(state, gameId, market, pick)!;
-      const mult = multiplierFor(pm);
-      const existing = state.bets.find((b) => b.season === state.season && b.gameId === gameId && b.market === market && b.teamId === pick);
-      const bets = existing
-        ? state.bets.map((b) => (b === existing ? { ...b, amount: b.amount + amount, multMilli: Math.floor((b.amount * b.multMilli + amount * mult) / (b.amount + amount)) } : b))
-        : [...state.bets, { id: `${state.season}-${gameId}-${market}-${pick}`, gameId, day: state.currentDay, teamId: pick, market, amount, multMilli: mult, pm, status: 'open' as const, payout: 0, season: state.season }];
-      return { ...state, coins: state.coins - amount, bets, ledger: withLedger(state, -amount, `Prediction: ${predictionLabel(state, { market, teamId: pick })}`) };
+      const call: SoccerBet = { id: `${state.season}-${gameId}-${market}-${pick}`, gameId, day: state.currentDay, teamId: pick, market, amount: 0, multMilli: multiplierFor(pm), pm, status: 'open', payout: 0, season: state.season };
+      return { ...state, bets: [...state.bets, call] };
     }
 
     case 'clubSwitched': {
       if (clubSwitchError(state, event.clubId)) return state;
       const from = clubOf(state, state.favoriteClubId);
       const to = clubOf(state, event.clubId)!;
-      const text = `You left the ${from ? `${from.city} ${from.name}` : 'old club'} for the ${to.city} ${to.name}. All ${state.coins} coins stay behind.`;
+      const text = `You left the ${from ? `${from.city} ${from.name}` : 'old club'} for the ${to.city} ${to.name}. Your ${state.coins} credibility stays with the old fan base.`;
       return {
         ...state,
         favoriteClubId: event.clubId,
@@ -751,6 +773,15 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
       if (state.checklistClaimed || !checklistDone(state)) return state;
       return { ...state, checklistClaimed: true, coins: state.coins + CHECKLIST_REWARD, ledger: withLedger(state, CHECKLIST_REWARD, 'Getting started: all done') };
 
+    case 'cardToggled': {
+      const has = state.collection.some((c) => c.playerId === event.playerId);
+      if (!has && !state.league.players[event.playerId]) return state;
+      return {
+        ...state,
+        collection: has ? state.collection.filter((c) => c.playerId !== event.playerId) : [...state.collection, { playerId: event.playerId, season: state.season, day: state.currentDay }],
+      };
+    }
+
     case 'checklistDismissed':
       return { ...state, checklistClaimed: true };
 
@@ -779,7 +810,7 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
         currentDay: state.currentDay + 1,
         dayCount: state.dayCount + 1,
         coins: state.coins + DAILY_STIPEND,
-        ledger: withLedger(state, DAILY_STIPEND, 'Daily fan stipend'),
+        ledger: withLedger(state, DAILY_STIPEND, 'Daily fan presence'),
         mods: expireMods(state.mods, state.season, state.currentDay + 1),
       };
       const open = currentElection(next);
@@ -861,7 +892,7 @@ function afterBallot(s: SoccerUniverse, summary: SoccerMatchSummary, box: Record
     const delivered = !!line && (line.goals > 0 || line.assists > 0 || ((pos === 'K' || pos === 'A') && cleanSheet(summary, s.favoriteClubId)));
     if (backed && delivered) {
       next = { ...next, coins: next.coins + CAPTAIN_BONUS, ledger: withLedger(next, CAPTAIN_BONUS, `Captain's Bonus: ${name}`) };
-      lines.push(`Captain's Bonus: ${name} delivered. +${CAPTAIN_BONUS} coins.`);
+      lines.push(`Captain's Bonus: ${name} delivered. +${CAPTAIN_BONUS} credibility.`);
     }
     if (summary.burden?.includes(s.favoriteClubId)) lines.push(`Captain's Burden: ${name} let the fans down. Morale is low for the next ballot.`);
     next = { ...next, news: withNews(next, lines, summary.day) };
@@ -1082,6 +1113,8 @@ function endSeason(s: SoccerUniverse): SoccerUniverse {
   const usedClubs = new Set(league.teams.map((t) => t.name));
   const rng = createRng(s.settings.seed, 'ejection', s.season);
   const lines: string[] = [];
+  const newAges: Record<string, number> = {};
+  const newMods: Record<string, ActiveMod[]> = {};
   for (const old of out) {
     const id = `t${nextClub++}`;
     const freshOr = (all: string[], used: Set<string>) => (all.some((x) => !used.has(x)) ? all.filter((x) => !used.has(x)) : all);
@@ -1094,6 +1127,9 @@ function endSeason(s: SoccerUniverse): SoccerUniverse {
     const squad = SQUAD_POSITIONS.map((pos, i) => {
       const p = freshPlayer({ ...s, league: { ...league, players } }, 'new-club', `${id}p${i + 1}`, id, pos);
       players[p.id] = p;
+      newAges[p.id] = initialAge(p.id);
+      const traits = bornWith(s.settings.seed, p.id, s.season);
+      if (traits.length) newMods[p.id] = traits;
       return p.id;
     });
     const team: SoccerTeam = {
@@ -1111,6 +1147,8 @@ function endSeason(s: SoccerUniverse): SoccerUniverse {
     phase: 'offseason',
     league,
     nextClub,
+    ages: { ...s.ages, ...newAges },
+    mods: { ...s.mods, ...newMods },
     favoriteClubId,
     clubHistory: favOut ? [...s.clubHistory, { clubId: favoriteClubId, fromSeason: s.season + 1 }] : s.clubHistory,
     archive: [...s.archive, { season: s.season, standings: table, championId: s.playoffs?.championId ?? null, ejected: out.map((t) => ({ id: t.id, name: `${t.city} ${t.name}` })) }],
@@ -1120,10 +1158,54 @@ function endSeason(s: SoccerUniverse): SoccerUniverse {
   };
 }
 
+/** Everyone ages a year. Players develop along their arc; some veterans retire and academy rookies take their places. */
+function offseason(s: SoccerUniverse, season: number): Pick<SoccerUniverse, 'league' | 'ages' | 'experience' | 'retired' | 'mods'> & { lines: string[] } {
+  const rng = createRng(s.settings.seed, 'offseason', season);
+  const players = { ...s.league.players };
+  const ages = { ...s.ages };
+  const experience = { ...s.experience };
+  const mods = { ...s.mods };
+  const retired = [...s.retired];
+  const lines: string[] = [];
+  const teams = s.league.teams.map((team) => {
+    const squad = team.squad.map((pid, slot) => {
+      const p = players[pid];
+      if (!p) return pid;
+      const age = (ages[pid] ?? initialAge(pid)) + 1;
+      const trait = agingOf(mods[pid]);
+      if (rng.chance(retirementChance(age - trait.delay))) {
+        retired.push({ player: p, teamId: team.id, season: s.season, age });
+        const rookieId = `${team.id}y${season}s${slot}`;
+        const used = new Set(Object.values(players).map((x) => x.name));
+        players[rookieId] = makeSoccerPlayer(createRng(s.settings.seed, 'academy', rookieId), rookieId, team.id, p.position, used);
+        delete players[pid];
+        ages[rookieId] = rookieAge(rookieId);
+        experience[rookieId] = 0;
+        const traits = bornWith(s.settings.seed, rookieId, season);
+        if (traits.length) mods[rookieId] = traits;
+        lines.push(`${p.name} (${team.name}) retired at ${age}. Academy graduate ${players[rookieId].name} steps up.`);
+        return rookieId;
+      }
+      ages[pid] = age;
+      experience[pid] = (experience[pid] ?? 0) + 1;
+      players[pid] = agePlayer(p, development(age - trait.delay, rng) + trait.shift);
+      return pid;
+    });
+    return { ...team, squad };
+  });
+  return { league: { ...s.league, teams, players }, ages, experience, retired, mods, lines };
+}
+
 function newSeason(s: SoccerUniverse): SoccerUniverse {
   const season = s.season + 1;
+  const off = offseason(s, season);
   return {
     ...s,
+    league: off.league,
+    ages: off.ages,
+    experience: off.experience,
+    retired: off.retired,
+    timeline: [...s.timeline, ...off.lines.map((text) => ({ season: s.season, day: s.currentDay, kind: 'retirement' as const, text }))],
     season,
     phase: 'regular',
     engineVersion: SOCCER_ENGINE_VERSION,
@@ -1137,8 +1219,8 @@ function newSeason(s: SoccerUniverse): SoccerUniverse {
     injuries: {},
     ejections: DEFAULT_EJECTIONS,
     clubEffects: [],
-    mods: expireMods(s.mods, season, 1),
-    news: withNews({ ...s, season }, [{ text: `Director: Season ${season} begins. Some of you are new. Do not get attached.`, director: true }], 1),
+    mods: expireMods(off.mods, season, 1),
+    news: withNews({ ...s, season }, [...off.lines, { text: `Director: Season ${season} begins. Some of you are new. Do not get attached.`, director: true }], 1),
   };
 }
 

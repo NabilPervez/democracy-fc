@@ -267,3 +267,15 @@ Direction from the owner (2026-10-07): Democracy FC is a new product; legacy bas
 - Bulletin hero shows your club's crest, name, city, rank and persona.
 - Arena and match colours retuned for dark (your club green, opponent amethyst, blocks sapphire, set pieces topaz).
 - Splash screens, share image and install screenshots regenerated.
+
+## S14 — Credibility, player depth, club identity, careers, rarity, collection — ✅
+- **Coins → Credibility.** No staking anywhere. Predictions are free "calls"; a correct call earns credibility (bolder calls earn more: `PREDICTION_BASE × multiplier`), a wrong one costs nothing. Credibility is spent on extra ballot and election votes — reputation becomes influence. Persona "Gambler" became "The Contrarian".
+- **All calls up front:** Who wins / Both teams score / Over-under 5.5 / First scorer, each one tap, no "More predictions" drawer.
+- **Traits & gifts (from Blastball, rebuilt for soccer):** 35 traits — born-with (≈40% of players), facility gifts (temporary or permanent), ageing traits (Ageless, Late Bloomer, Burning Bright, Old Soul), Sub-Level-only, and **10 combos** that fuse automatically (e.g. Blessed + Cursed → Perfectly Balanced, Static Charge + Magnetized → Lightning Rod).
+- **Club power-up** (16, unique per club, every match) and **pitch power-up** (9, home matches) applied in the engine.
+- **Careers:** every player has an age; rising ≤23, prime 24–28, fading 29–31, declining 32+; seasonal development with trait shifts; retirements replaced by academy graduates; retired players kept for club histories.
+- **Card rarity** (Common → Legendary) from powers, signature move, Awakening, Sub-Level return, career output, championships and captaincies, with the reasons and the gap to the next tier in a tooltip.
+- **Collection:** collect any player's card; your collection lives in Archive and keeps retired or vanished players.
+- **Full club profile:** crest, founded year, motto, bio, titles / record / fan base, both power-ups, championships, squad with rarity, club legends and retirees, switch-club flow.
+- **Expanded player profile:** rarity frame, age / seasons / career phase with an arc chart, star groups, Drive, signature, every trait with its combo partners, season-by-season stats, dorm bio and fun fact, back/fade, collect.
+- `tests/identity.test.ts` (9). 97 tests pass.

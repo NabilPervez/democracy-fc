@@ -358,3 +358,72 @@ details summary { cursor: pointer; font-weight: 700; color: var(--primary); }
 .arena-log .sep { position: sticky; top: 0; z-index: 1; padding: 6px 14px; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); background: #0f1512; border-bottom: 1px solid var(--line); }
 @media (prefers-reduced-motion: reduce) { .arena .tween { transition: none; } .arena .flash { animation: none; } .btn:active { transform: none; } }
 html, body { overflow-x: hidden; }
+
+/* ------------------------------------------------------------------ Calls (predictions as reputation) */
+.calls h3 { margin: 0 0 4px; font-size: 0.95rem; }
+.call-q { margin: 12px 0 6px; font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+.call-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.call-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.call-row.scorer { grid-template-columns: minmax(0, 1fr) auto; }
+.call-row.scorer select { width: 100%; min-width: 0; }
+.call {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 58px; padding: 8px 6px;
+  border-radius: 14px; border: 1px solid transparent; background: var(--surface-2); color: var(--text); text-align: center;
+}
+.call strong { font-size: 0.86rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.call-meta { font-size: 0.7rem; font-weight: 700; color: var(--muted); }
+.call.mine { border-color: var(--primary); background: rgba(30, 212, 124, 0.12); }
+.call.mine .call-meta { color: var(--primary); }
+.call.static { margin: 0; flex-direction: row; justify-content: space-between; padding: 12px 14px; }
+.call:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ------------------------------------------------------------------ Rarity */
+.tier { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+.tier.common { background: var(--surface-3); color: var(--muted); }
+.tier.uncommon { background: rgba(30, 212, 124, 0.16); color: var(--primary); }
+.tier.rare { background: rgba(91, 140, 255, 0.18); color: var(--sapphire); }
+.tier.epic { background: rgba(176, 124, 255, 0.2); color: var(--amethyst); }
+.tier.legendary { background: linear-gradient(90deg, rgba(255, 200, 69, 0.3), rgba(255, 92, 122, 0.25)); color: var(--gold); }
+.pcard.t-uncommon { border-color: rgba(30, 212, 124, 0.45); }
+.pcard.t-rare { border-color: rgba(91, 140, 255, 0.55); box-shadow: 0 0 22px rgba(91, 140, 255, 0.18); }
+.pcard.t-epic { border-color: rgba(176, 124, 255, 0.6); box-shadow: 0 0 26px rgba(176, 124, 255, 0.25); }
+.pcard.t-legendary { border: 2px solid transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, linear-gradient(135deg, var(--gold), var(--ruby), var(--amethyst)) border-box; box-shadow: 0 0 30px rgba(255, 200, 69, 0.25); }
+
+/* ------------------------------------------------------------------ Profiles */
+.profile-hero { display: flex; gap: 14px; align-items: center; }
+.profile-hero .hero-text { min-width: 0; }
+.profile-hero h2 { margin: 0; font-size: 1.45rem; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.fact { padding: 10px; border-radius: 12px; background: var(--surface-2); min-width: 0; }
+.fact b { display: block; font-size: 1.05rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fact span { display: block; font-size: 0.68rem; font-weight: 700; color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.arc { display: flex; gap: 3px; align-items: flex-end; height: 34px; }
+.arc span { flex: 1; border-radius: 3px 3px 0 0; background: var(--surface-3); }
+.arc span.now { background: var(--primary); }
+.arc-labels { display: flex; justify-content: space-between; font-size: 0.66rem; color: var(--faint); margin-top: 4px; }
+.trait { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 10px; border-radius: 12px; background: var(--surface-2); }
+.trait .ic { font-size: 1.1rem; text-align: center; }
+.trait p { margin: 2px 0 0; font-size: 0.78rem; color: var(--muted); }
+.trait .combo { font-size: 0.72rem; color: var(--amethyst); margin-top: 4px; }
+.perk { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: center; padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(30, 212, 124, 0.12), rgba(91, 140, 255, 0.08)); }
+.perk .ic { font-size: 1.4rem; text-align: center; }
+.perk small { display: block; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--primary); }
+.perk p { margin: 2px 0 0; font-size: 0.8rem; color: var(--muted); }
+.season-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.season-table th, .season-table td { padding: 8px 6px; text-align: right; border-bottom: 1px solid var(--line); }
+.season-table th:first-child, .season-table td:first-child { text-align: left; }
+.season-table th { color: var(--faint); font-size: 0.7rem; }
+.stack { display: grid; gap: 8px; }
+.trophy-row { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.trophy { flex: none; padding: 10px 14px; border-radius: 14px; background: linear-gradient(135deg, rgba(255, 200, 69, 0.22), rgba(255, 200, 69, 0.06)); color: var(--gold); font-weight: 800; font-size: 0.85rem; white-space: nowrap; }
+
+/* ------------------------------------------------------------------ Collection */
+.collection { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.mini-card { display: grid; gap: 6px; padding: 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); text-align: left; color: var(--text); min-width: 0; }
+.mini-card .name { font-weight: 800; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-card .club { font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-card.t-rare { border-color: rgba(91, 140, 255, 0.55); }
+.mini-card.t-epic { border-color: rgba(176, 124, 255, 0.6); }
+.mini-card.t-legendary { border: 2px solid transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, linear-gradient(135deg, var(--gold), var(--ruby), var(--amethyst)) border-box; }
+.mini-card.gone { opacity: 0.6; filter: grayscale(0.7); }
+.star-half { opacity: 0.45; }

@@ -24,7 +24,7 @@ export function Stars({ value, label }: { value: number; label: string }) {
     <span aria-label={`${label}: ${value} of 5 stars`} className="stars">
       <span aria-hidden="true">
         {'★'.repeat(full)}
-        {half ? '⯨' : ''}
+        {half ? <span className="star-half">★</span> : ''}
         <span className="stars-empty">{'☆'.repeat(5 - full - (half ? 1 : 0))}</span>
       </span>
     </span>
@@ -91,8 +91,8 @@ export function Coins() {
   const coins = useAssembly((s) => s.u?.coins ?? 0);
   return (
     <span className="chip coins-chip">
-      <Tip label={`${coins} coins`} text={HELP.coins}>
-        ◈ {coins}
+      <Tip label={`${coins} credibility`} text={HELP.coins}>
+        ◆ {coins}
       </Tip>
     </span>
   );

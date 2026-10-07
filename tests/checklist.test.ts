@@ -13,7 +13,7 @@ describe('getting-started checklist', () => {
     const mine = u.league.teams.find((t) => t.id === u.favoriteClubId)!;
     u = reduceSoccer(u, { type: 'ballotVote', gameId: g.id, question: 'tactic', option: 0, count: 1 });
     u = reduceSoccer(u, { type: 'ballotVote', gameId: g.id, question: 'captain', option: 0, count: 1 });
-    u = reduceSoccer(u, { type: 'betPlaced', gameId: g.id, teamId: g.homeId, amount: 5 });
+    u = reduceSoccer(u, { type: 'betPlaced', gameId: g.id, teamId: g.homeId });
     u = reduceSoccer(u, { type: 'pickSet', playerId: mine.squad[4], kind: 'back' });
     u = reduceSoccer(u, { type: 'pickSet', playerId: other.squad[4], kind: 'fade' });
     const e = currentElection(u)!;

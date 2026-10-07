@@ -367,7 +367,7 @@ function Create() {
 const INTRO = [
   { title: 'The Assembly', text: 'A sealed soccer facility. Twelve clubs play 5-a-side in glass-walled arenas. There is no out of bounds — the walls are part of the game.' },
   { title: 'You are a fan', text: "You can't touch the ball. You pick a club and watch its players through the facility's broadcast feed." },
-  { title: 'Every club is fan-run', text: 'Before each match, the fans vote on the tactic and the captain. Make a prediction to earn coins. Skip it and the other fans decide.' },
+  { title: 'Every club is fan-run', text: 'Before each match, the fans vote on the tactic and the captain. Call the result to build credibility — your influence in every vote. Skip it and the other fans decide.' },
   { title: 'Vote on the rules', text: 'Every week the fans of every club vote on the facility’s rules — each for what helps their club. The Director enforces the winners. Strange things happen.' },
 ];
 

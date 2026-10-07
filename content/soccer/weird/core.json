@@ -48,7 +48,7 @@
    "id": "glass-boots",
    "name": "Glass Boots",
    "icon": "◇",
-   "description": "+10 dribbling. Breaks easily.",
+   "description": "+10 dribbling, −6 stamina. Beautiful, brittle.",
    "delta": {
     "dribbling": 10,
     "stamina": -6
@@ -104,11 +104,12 @@
    "id": "night-shift",
    "name": "Night Shift",
    "icon": "☾",
-   "description": "Trains when the floodlights are off. +6 vision, −4 stamina.",
+   "description": "Trains when the lights are off. +6 vision, −4 stamina.",
    "delta": {
     "vision": 6,
     "stamina": -4
-   }
+   },
+   "innate": true
   },
   {
    "id": "static-charge",
@@ -118,7 +119,8 @@
    "delta": {
     "firstTouch": 8,
     "aerial": -4
-   }
+   },
+   "innate": true
   },
   {
    "id": "frostbitten",
@@ -128,6 +130,285 @@
    "delta": {
     "pace": -6
    }
+  },
+  {
+   "id": "long-legs",
+   "name": "Long Legs",
+   "icon": "⟂",
+   "description": "+8 aerial and +4 tackling, −4 dribbling.",
+   "delta": {
+    "aerial": 8,
+    "tackling": 4,
+    "dribbling": -4
+   },
+   "innate": true
+  },
+  {
+   "id": "metronome",
+   "name": "Metronome",
+   "icon": "♩",
+   "description": "Every pass on the beat. +8 passing.",
+   "delta": {
+    "passing": 8
+   },
+   "innate": true
+  },
+  {
+   "id": "ghost-step",
+   "name": "Ghost Step",
+   "icon": "◌",
+   "description": "Defenders swear they were never there. +7 pace and dribbling, −5 tackling.",
+   "delta": {
+    "pace": 7,
+    "dribbling": 7,
+    "tackling": -5
+   },
+   "innate": true
+  },
+  {
+   "id": "iron-lungs",
+   "name": "Iron Lungs",
+   "icon": "◍",
+   "description": "Raised at altitude. +10 stamina.",
+   "delta": {
+    "stamina": 10
+   },
+   "innate": true
+  },
+  {
+   "id": "cat-reflexes",
+   "name": "Cat Reflexes",
+   "icon": "🐈",
+   "description": "+8 reflexes. Keepers only make the most of it.",
+   "delta": {
+    "reflexes": 8
+   },
+   "innate": true
+  },
+  {
+   "id": "glass-jaw",
+   "name": "Glass Jaw",
+   "icon": "◇",
+   "description": "Goes down easily. −6 composure, +4 first touch.",
+   "delta": {
+    "composure": -6,
+    "firstTouch": 4
+   },
+   "innate": true
+  },
+  {
+   "id": "lucky-laces",
+   "name": "Lucky Laces",
+   "icon": "🍀",
+   "description": "Never re-tied them. +4 finishing and composure.",
+   "delta": {
+    "finishing": 4,
+    "composure": 4
+   },
+   "innate": true
+  },
+  {
+   "id": "hothead",
+   "name": "Hothead",
+   "icon": "♨",
+   "description": "+6 tackling, −6 composure. Fouls follow.",
+   "delta": {
+    "tackling": 6,
+    "composure": -6
+   },
+   "innate": true
+  },
+  {
+   "id": "wall-reader",
+   "name": "Wall Reader",
+   "icon": "▥",
+   "description": "Knows every panel of every arena. +6 vision, +4 positioning.",
+   "delta": {
+    "vision": 6,
+    "positioning": 4
+   },
+   "innate": true
+  },
+  {
+   "id": "ageless",
+   "name": "Ageless",
+   "icon": "⌛",
+   "description": "Time forgot about them. Peaks late and fades slowly.",
+   "delta": {},
+   "aging": {
+    "shift": 1,
+    "delay": 3
+   },
+   "innate": true
+  },
+  {
+   "id": "late-bloomer",
+   "name": "Late Bloomer",
+   "icon": "🌱",
+   "description": "A little better every season, whatever their age.",
+   "delta": {
+    "passing": -3,
+    "finishing": -3
+   },
+   "aging": {
+    "shift": 3
+   },
+   "innate": true
+  },
+  {
+   "id": "burning-bright",
+   "name": "Burning Bright",
+   "icon": "🔥",
+   "description": "+8 finishing and pace now. Ages twice as hard.",
+   "delta": {
+    "finishing": 8,
+    "pace": 8
+   },
+   "aging": {
+    "shift": -3,
+    "delay": -2
+   },
+   "innate": true
+  },
+  {
+   "id": "old-soul",
+   "name": "Old Soul",
+   "icon": "🕯",
+   "description": "Plays like a veteran. +6 composure and vision, retires later.",
+   "delta": {
+    "composure": 6,
+    "vision": 6
+   },
+   "aging": {
+    "delay": 2
+   },
+   "innate": true
+  },
+  {
+   "id": "burnt-out",
+   "name": "Burnt Out",
+   "icon": "🌋",
+   "description": "Running Hot + Night Shift. +12 finishing, −10 composure, −6 stamina.",
+   "delta": {
+    "finishing": 12,
+    "composure": -10,
+    "stamina": -6
+   },
+   "comboOnly": true
+  },
+  {
+   "id": "balanced",
+   "name": "Perfectly Balanced",
+   "icon": "☯",
+   "description": "Blessed + Cursed cancel into calm. +4 to everything that matters.",
+   "delta": {
+    "finishing": 4,
+    "passing": 4,
+    "tackling": 4,
+    "pace": 4,
+    "composure": 4,
+    "reflexes": 4
+   },
+   "comboOnly": true
+  },
+  {
+   "id": "lightning-rod",
+   "name": "Lightning Rod",
+   "icon": "⚡",
+   "description": "Static Charge + Magnetized. Everything comes to them. +10 first touch and tackling.",
+   "delta": {
+    "firstTouch": 10,
+    "tackling": 10
+   },
+   "comboOnly": true
+  },
+  {
+   "id": "phantom",
+   "name": "Phantom",
+   "icon": "👻",
+   "description": "Ghost Step + Night Shift. +12 dribbling, +8 vision.",
+   "delta": {
+    "dribbling": 12,
+    "vision": 8
+   },
+   "comboOnly": true
+  },
+  {
+   "id": "supernova",
+   "name": "Supernova",
+   "icon": "☀",
+   "description": "Burning Bright + Running Hot. +16 finishing. Burns out fast.",
+   "delta": {
+    "finishing": 16,
+    "pace": 6
+   },
+   "aging": {
+    "shift": -5,
+    "delay": -3
+   },
+   "comboOnly": true
+  },
+  {
+   "id": "eternal",
+   "name": "Eternal",
+   "icon": "♾",
+   "description": "Ageless + Old Soul. Barely ages at all.",
+   "delta": {
+    "composure": 6,
+    "vision": 6
+   },
+   "aging": {
+    "shift": 2,
+    "delay": 6
+   },
+   "comboOnly": true
+  },
+  {
+   "id": "conductor-baton",
+   "name": "The Baton",
+   "icon": "🎼",
+   "description": "Metronome + Wall Reader. +12 passing, +8 vision.",
+   "delta": {
+    "passing": 12,
+    "vision": 8
+   },
+   "comboOnly": true
+  },
+  {
+   "id": "bulwark",
+   "name": "Bulwark",
+   "icon": "🛡",
+   "description": "Long Legs + Magnetized. +12 tackling and aerial, −6 pace.",
+   "delta": {
+    "tackling": 12,
+    "aerial": 12,
+    "pace": -6
+   },
+   "comboOnly": true
+  },
+  {
+   "id": "volcano",
+   "name": "Volcano",
+   "icon": "🌋",
+   "description": "Hothead + Running Hot. +12 finishing and tackling, −12 composure.",
+   "delta": {
+    "finishing": 12,
+    "tackling": 12,
+    "composure": -12
+   },
+   "comboOnly": true
+  },
+  {
+   "id": "four-leaf",
+   "name": "Four-Leaf",
+   "icon": "☘",
+   "description": "Lucky Laces + Blessed. +8 finishing, passing and composure.",
+   "delta": {
+    "finishing": 8,
+    "passing": 8,
+    "composure": 8
+   },
+   "comboOnly": true
   },
   {
    "id": "echoed",
@@ -151,6 +432,17 @@
    "delta": {
     "finishing": 10,
     "composure": -8
+   },
+   "returnedOnly": true
+  },
+  {
+   "id": "sub-level-sight",
+   "name": "Sub-Level Sight",
+   "icon": "👁",
+   "description": "Came back from the Sub-Levels seeing too much. +12 vision, −4 pace.",
+   "delta": {
+    "vision": 12,
+    "pace": -4
    },
    "returnedOnly": true
   }
@@ -243,6 +535,70 @@
     8
    ],
    "text": "{player} found a note under their pillow: YOU ARE DOING WELL. Their game has never been better."
+  },
+  {
+   "id": "gift-metronome",
+   "weight": 2,
+   "minChaos": "calm",
+   "mod": "metronome",
+   "durationDays": null,
+   "text": "{player} found a metronome in their locker. They have not stopped passing in time since."
+  },
+  {
+   "id": "gift-ghost",
+   "weight": 2,
+   "minChaos": "calm",
+   "mod": "ghost-step",
+   "durationDays": null,
+   "text": "Camera footage shows {player} walking through a closed door. They play like it too."
+  },
+  {
+   "id": "gift-lungs",
+   "weight": 2,
+   "minChaos": "calm",
+   "mod": "iron-lungs",
+   "durationDays": null,
+   "text": "{player} was moved to the altitude dorm. They came back breathing differently."
+  },
+  {
+   "id": "gift-lucky",
+   "weight": 2,
+   "minChaos": "calm",
+   "mod": "lucky-laces",
+   "durationDays": null,
+   "text": "{player} refuses to change their laces. The results speak for themselves."
+  },
+  {
+   "id": "gift-wall",
+   "weight": 2,
+   "minChaos": "calm",
+   "mod": "wall-reader",
+   "durationDays": null,
+   "text": "{player} spent a night alone in an arena, touching every panel. They know the walls now."
+  },
+  {
+   "id": "gift-legs",
+   "weight": 2,
+   "minChaos": "calm",
+   "mod": "long-legs",
+   "durationDays": null,
+   "text": "{player} grew two centimetres overnight. The facility doctor has no comment."
+  },
+  {
+   "id": "gift-hothead",
+   "weight": 2,
+   "minChaos": "calm",
+   "mod": "hothead",
+   "durationDays": null,
+   "text": "{player} punched a vending machine. It now owes them money, and so does everyone else."
+  },
+  {
+   "id": "gift-static",
+   "weight": 2,
+   "minChaos": "calm",
+   "mod": "static-charge",
+   "durationDays": null,
+   "text": "{player} was standing next to a wall during a power surge. The ball follows them now."
   }
  ],
  "facilityEvents": [
@@ -351,6 +707,78 @@
    "weight": 1,
    "echoGoal": true,
    "text": "Director: Tonight the first goal will be replayed. It will count twice. Do not ask why."
+  }
+ ],
+ "combos": [
+  {
+   "needs": [
+    "running-hot",
+    "night-shift"
+   ],
+   "result": "burnt-out"
+  },
+  {
+   "needs": [
+    "blessed",
+    "cursed"
+   ],
+   "result": "balanced"
+  },
+  {
+   "needs": [
+    "static-charge",
+    "magnetized"
+   ],
+   "result": "lightning-rod"
+  },
+  {
+   "needs": [
+    "ghost-step",
+    "night-shift"
+   ],
+   "result": "phantom"
+  },
+  {
+   "needs": [
+    "burning-bright",
+    "running-hot"
+   ],
+   "result": "supernova"
+  },
+  {
+   "needs": [
+    "ageless",
+    "old-soul"
+   ],
+   "result": "eternal"
+  },
+  {
+   "needs": [
+    "metronome",
+    "wall-reader"
+   ],
+   "result": "conductor-baton"
+  },
+  {
+   "needs": [
+    "long-legs",
+    "magnetized"
+   ],
+   "result": "bulwark"
+  },
+  {
+   "needs": [
+    "hothead",
+    "running-hot"
+   ],
+   "result": "volcano"
+  },
+  {
+   "needs": [
+    "lucky-laces",
+    "blessed"
+   ],
+   "result": "four-leaf"
   }
  ]
 }

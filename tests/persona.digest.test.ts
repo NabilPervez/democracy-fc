@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildSoccerDigest } from '../src/world/soccer/digest';
 import { leanAsSeen, personaReward, PERSONAS } from '../src/world/soccer/persona';
-import { createSoccerWorld, currentElection, electionVoteCost, reduceSoccer, runSoccerCommand, type SoccerSettings } from '../src/world/soccer/universe';
+import { createSoccerWorld, currentElection, electionVoteCost, predictionReward, reduceSoccer, runSoccerCommand, type SoccerSettings } from '../src/world/soccer/universe';
 
 const settings = (p: Partial<SoccerSettings> = {}): SoccerSettings => ({
   name: 'P', seed: 'persona', leagueSize: 12, chaos: 'normal', timeMode: 'manual', dayLengthMinutes: 60, ...p,
@@ -13,11 +13,11 @@ describe('fan personas', () => {
     for (const p of PERSONAS) expect(p.perk.length).toBeGreaterThan(10);
   });
 
-  it('Diehard earns more backing their own club; Gambler earns more on long shots', () => {
+  it('Diehard earns more backing their own club; Contrarian earns more on long shots', () => {
     expect(personaReward('diehard', 2000, 400, true)).toBe(2400);
     expect(personaReward('diehard', 2000, 400, false)).toBe(2000);
-    expect(personaReward('gambler', 4000, 300, false)).toBe(4600);
-    expect(personaReward('gambler', 1500, 600, false)).toBe(1500);
+    expect(personaReward('contrarian', 4000, 300, false)).toBe(4600);
+    expect(personaReward('contrarian', 1500, 600, false)).toBe(1500);
     expect(personaReward(null, 2000, 300, true)).toBe(2000);
   });
 
@@ -37,11 +37,11 @@ describe('fan personas', () => {
     for (let i = 0; i < 20; i++) {
       let u = reduceSoccer(createSoccerWorld('u', settings({ seed: `die-${i}` }), null, 0), { type: 'personaChosen', persona: 'diehard' });
       const g = u.schedule.find((x) => x.day === 1 && (x.homeId === u.favoriteClubId || x.awayId === u.favoriteClubId))!;
-      u = reduceSoccer(u, { type: 'betPlaced', gameId: g.id, teamId: u.favoriteClubId, amount: 10 });
+      u = reduceSoccer(u, { type: 'betPlaced', gameId: g.id, teamId: u.favoriteClubId });
       const bet = u.bets[0];
       u = runSoccerCommand(u, { type: 'playGame', gameId: g.id }).state;
       if (u.bets[0].status !== 'won') continue;
-      expect(u.bets[0].payout).toBe(Math.floor((10 * Math.floor((bet.multMilli * 120) / 100)) / 1000));
+      expect(u.bets[0].payout).toBe(predictionReward(Math.floor((bet.multMilli * 120) / 100)));
       return;
     }
     throw new Error('the fan club never won in 20 seeds');

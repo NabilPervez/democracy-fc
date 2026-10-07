@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { formatMult, multiplierFor } from '../../engine/odds';
+import { multiplierFor } from '../../engine/odds';
 import { getTactic } from '../../engine/soccer/tactics';
 import { ballotVoteCost } from '../../world/soccer/matchday';
 import {
-  ballotError, betError, clubOf, currentElection, DRAW_PICK, fixturesOn, matchBallot, matchOdds, predictionLabel, regularDays, sideOdds,
+  ballotError, betError, clubOf, currentElection, DRAW_PICK, fixturesOn, isKnockout, matchBallot, matchOdds, predictionReward, regularDays, sideOdds,
   sidePredictionError, soccerStandings, TOTAL_LINE, unplayedToday, type SideMarket, type SoccerUniverse,
 } from '../../world/soccer/universe';
 import { Crest, DRIVE_INFO, POSITION_LABEL, Tip, useNow } from './bits';
@@ -181,7 +181,7 @@ function Picks() {
   return (
     <div className="card" style={{ padding: 14, marginTop: 12 }}>
       <p className="eyebrow">
-        <Tip label="Your picks" text={HELP.picks} /> · {u.picksLifetime} coins earned
+        <Tip label="Your picks" text={HELP.picks} /> · {u.picksLifetime} credibility earned
       </p>
       {ids.length ? (
         <ul className="feed" style={{ margin: 0 }}>
@@ -202,7 +202,7 @@ function Picks() {
           })}
         </ul>
       ) : (
-        <p className="muted small" style={{ margin: 0 }}>Back players to earn when they score or keep clean sheets; fade players to earn when they flop. Open any player card in Facility.</p>
+        <p className="muted small" style={{ margin: 0 }}>Back players to gain credibility when they score or keep clean sheets; fade players to gain it when they flop. Open any player in Facility.</p>
       )}
       {last && <p className="small muted" style={{ margin: '8px 0 0' }}>Last payout: {last.reason.replace('Picks: ', '')}</p>}
     </div>
@@ -250,7 +250,7 @@ function Checklist() {
       </ul>
       {all && (
         <button className="btn primary" onClick={() => void dispatch({ type: 'checklistClaimed' })}>
-          All done — claim {CHECKLIST_REWARD} coins
+          All done — claim {CHECKLIST_REWARD} credibility
         </button>
       )}
     </div>
@@ -374,85 +374,84 @@ function MatchdayBallot({ gameId }: { gameId: string }) {
   );
 }
 
+/** §B8 as reputation: free calls on every market; correct calls build credibility (bolder calls earn more). */
 function Prediction({ gameId }: { gameId: string }) {
   const u = useAssembly((s) => s.u)!;
   const { dispatch } = useAssembly();
-  const [stake, setStake] = useState(10);
+  const [scorer, setScorer] = useState('');
   const game = u.schedule.find((g) => g.id === gameId)!;
   const odds = matchOdds(u, gameId);
+  const side = sideOdds(u, gameId);
   const home = clubOf(u, game.homeId)!;
   const away = clubOf(u, game.awayId)!;
-  const existing = u.bets.filter((b) => b.gameId === gameId && b.season === u.season);
-  const side = sideOdds(u, gameId);
-  const [scorer, setScorer] = useState('');
-  const sideButton = (market: SideMarket, pick: string, label: string, pm: number) => {
-    const err = sidePredictionError(u, gameId, market, pick, stake);
+  const calls = u.bets.filter((b) => b.gameId === gameId && b.season === u.season);
+  const called = (market: SideMarket | undefined, pick: string) => calls.some((b) => b.market === market && b.teamId === pick);
+  const option = (key: string, market: SideMarket | undefined, pick: string, label: string, pm: number, mult: number) => {
+    const err = market ? sidePredictionError(u, gameId, market, pick) : betError(u, gameId, pick);
+    const mine = called(market, pick);
     return (
-      <button key={market + pick} className="btn" disabled={!!err} title={err ?? undefined} onClick={() => void dispatch({ type: 'sidePrediction', gameId, market, pick, amount: stake })}>
+      <button
+        key={key}
+        className={`call ${mine ? 'mine' : ''}`}
+        disabled={!!err && !mine}
+        aria-pressed={mine}
+        title={err ?? undefined}
+        onClick={() => !mine && void dispatch(market ? { type: 'sidePrediction', gameId, market, pick } : { type: 'betPlaced', gameId, teamId: pick })}
+      >
         <strong>{label}</strong>
-        <span className="mult">
-          {Math.round(pm / 10)}% · {formatMult(multiplierFor(pm))}
+        <span className="call-meta">
+          {Math.round(pm / 10)}% · +{predictionReward(mult)} ◆
         </span>
       </button>
     );
   };
   const scorers = Object.entries(side.firstScorer).sort((a, b) => b[1] - a[1]);
-  const options = [
-    { id: game.homeId, label: home.name, mult: odds.homeMult, pm: odds.homePm },
-    { id: DRAW_PICK, label: 'Draw', mult: odds.drawMult, pm: odds.drawPm },
-    { id: game.awayId, label: away.name, mult: odds.awayMult, pm: odds.awayPm },
-  ];
+  const firstCall = calls.find((b) => b.market === 'firstScorer');
   return (
-    <div>
-      <h3>3 · <Tip label="Prediction" text={HELP.prediction} /></h3>
-      <p className="muted small" style={{ margin: '0 0 6px' }}>
-        Coins are earned, never bought.{' '}
-        {existing.length ? `You predicted: ${existing.map((b) => `${b.teamId === DRAW_PICK ? 'a draw' : predictionLabel(u, b)} (${b.amount}◈)`).join(', ')}.` : ''}
+    <div className="calls">
+      <h3>
+        3 · <Tip label="Your calls" text={HELP.prediction} />
+      </h3>
+      <p className="muted small" style={{ margin: '0 0 10px' }}>
+        Free to make. Right calls build credibility — the bolder, the more.
       </p>
-      <label className="stake">
-        Stake
-        <input type="number" min={1} max={u.coins} value={stake} onChange={(e) => setStake(Math.max(1, Math.floor(Number(e.target.value) || 1)))} />
-        coins
-      </label>
-      <div className="predict-row">
-        {options.map((o) => {
-          const err = betError(u, gameId, o.id, stake);
-          return (
-            <button key={o.id} className="btn" disabled={!!err} title={err ?? undefined} onClick={() => void dispatch({ type: 'betPlaced', gameId, teamId: o.id, amount: stake })}>
-              <strong>{o.label}</strong>
-              <span className="mult">
-                {Math.round(o.pm / 10)}% · {formatMult(o.mult)} reward
-              </span>
-            </button>
-          );
-        })}
+      <p className="call-q">Who wins?</p>
+      <div className="call-row three">
+        {option('h', undefined, game.homeId, home.name, odds.homePm, odds.homeMult)}
+        {!isKnockout(u, gameId) && option('d', undefined, DRAW_PICK, 'Draw', odds.drawPm, odds.drawMult)}
+        {option('a', undefined, game.awayId, away.name, odds.awayPm, odds.awayMult)}
       </div>
-      <details style={{ marginTop: 10 }}>
-        <summary className="small">More predictions</summary>
-        <p className="small muted" style={{ margin: '6px 0 0' }}>{HELP.morePredictions}</p>
-        <p className="small muted" style={{ margin: '8px 0 4px' }}>Both teams score?</p>
-        <div className="predict-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
-          {sideButton('btts', 'yes', 'Yes', side.btts.yes)}
-          {sideButton('btts', 'no', 'No', side.btts.no)}
-        </div>
-        <p className="small muted" style={{ margin: '8px 0 4px' }}>Total goals ({TOTAL_LINE})</p>
-        <div className="predict-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
-          {sideButton('total', 'over', 'Over', side.total.over)}
-          {sideButton('total', 'under', 'Under', side.total.under)}
-        </div>
-        <p className="small muted" style={{ margin: '8px 0 4px' }}>First scorer</p>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select value={scorer} onChange={(e) => setScorer(e.target.value)} aria-label="First scorer" style={{ flex: 1, minHeight: 44, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)' }}>
+      <p className="call-q">Both teams score?</p>
+      <div className="call-row">
+        {option('by', 'btts', 'yes', 'Yes', side.btts.yes, multiplierFor(side.btts.yes))}
+        {option('bn', 'btts', 'no', 'No', side.btts.no, multiplierFor(side.btts.no))}
+      </div>
+      <p className="call-q">Goals: over or under {TOTAL_LINE}?</p>
+      <div className="call-row">
+        {option('to', 'total', 'over', 'Over', side.total.over, multiplierFor(side.total.over))}
+        {option('tu', 'total', 'under', 'Under', side.total.under, multiplierFor(side.total.under))}
+      </div>
+      <p className="call-q">First scorer</p>
+      {firstCall ? (
+        <p className="call mine static">
+          <strong>{u.league.players[firstCall.teamId]?.name}</strong>
+          <span className="call-meta">+{predictionReward(firstCall.multMilli)} ◆ if right</span>
+        </p>
+      ) : (
+        <div className="call-row scorer">
+          <select value={scorer} onChange={(e) => setScorer(e.target.value)} aria-label="First scorer">
             <option value="">Pick a player…</option>
             {scorers.map(([id, pm]) => (
               <option key={id} value={id}>
-                {u.league.players[id]?.name} · {formatMult(multiplierFor(pm))}
+                {u.league.players[id]?.name} · {Math.round(pm / 10)}% · +{predictionReward(multiplierFor(pm))} ◆
               </option>
             ))}
           </select>
-          {scorer && sideButton('firstScorer', scorer, 'Predict', side.firstScorer[scorer])}
+          <button className="btn primary" disabled={!scorer || !!sidePredictionError(u, gameId, 'firstScorer', scorer)} onClick={() => void dispatch({ type: 'sidePrediction', gameId, market: 'firstScorer', pick: scorer })}>
+            Call it
+          </button>
         </div>
-      </details>
+      )}
     </div>
   );
 }

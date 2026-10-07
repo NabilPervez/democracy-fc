@@ -78,8 +78,8 @@ describe('Democracy FC world (S5)', () => {
   it('predictions settle on 3-way results, including draws', () => {
     let u = fresh({ seed: 'predict' });
     const today = u.schedule.filter((g) => g.day === 1);
-    for (const g of today) u = reduceSoccer(u, { type: 'betPlaced', gameId: g.id, teamId: DRAW_PICK, amount: 5 });
-    expect(u.coins).toBe(100 - 5 * today.length);
+    for (const g of today) u = reduceSoccer(u, { type: 'betPlaced', gameId: g.id, teamId: DRAW_PICK });
+    expect(u.coins).toBe(100); // calls are free
     u = runSoccerCommand(u, { type: 'endDay' }).state;
     for (const g of today) {
       const r = u.results[g.id];
@@ -91,15 +91,15 @@ describe('Democracy FC world (S5)', () => {
   it('prediction rules: no draws in knockouts, one side per match, only today', () => {
     let u = fresh();
     const g = u.schedule.find((x) => x.day === 1)!;
-    expect(betError(u, g.id, g.homeId, 10)).toBeNull();
-    u = reduceSoccer(u, { type: 'betPlaced', gameId: g.id, teamId: g.homeId, amount: 10 });
-    expect(betError(u, g.id, g.awayId, 10)).toMatch(/different prediction/);
+    expect(betError(u, g.id, g.homeId)).toBeNull();
+    u = reduceSoccer(u, { type: 'betPlaced', gameId: g.id, teamId: g.homeId });
+    expect(betError(u, g.id, g.awayId)).toMatch(/already made your call/);
     const later = u.schedule.find((x) => x.day === 2)!;
-    expect(betError(u, later.id, later.homeId, 1)).toMatch(/today/);
+    expect(betError(u, later.id, later.homeId)).toMatch(/today/);
     const end = runSoccerCommand(fresh(), { type: 'simDays', count: regularDays(u) }).state;
     expect(end.phase).toBe('playoffs');
     const semi = end.playoffs!.rounds[0][0];
-    expect(betError(end, semi, DRAW_PICK, 1)).toMatch(/Knockout/);
+    expect(betError(end, semi, DRAW_PICK)).toMatch(/Knockout/);
   });
 
   it('knockout matches never end level', () => {
@@ -173,11 +173,11 @@ describe('side prediction markets (S8)', () => {
       expect(o.btts.yes + o.btts.no).toBe(1000);
       expect(o.total.over + o.total.under).toBe(1000);
       const scorer = Object.entries(o.firstScorer).sort((a, b) => b[1] - a[1])[0][0];
-      u = reduceSoccer(u, { type: 'sidePrediction', gameId: g.id, market: 'btts', pick: 'yes', amount: 1 });
-      u = reduceSoccer(u, { type: 'sidePrediction', gameId: g.id, market: 'total', pick: 'over', amount: 1 });
-      u = reduceSoccer(u, { type: 'sidePrediction', gameId: g.id, market: 'firstScorer', pick: scorer, amount: 1 });
+      u = reduceSoccer(u, { type: 'sidePrediction', gameId: g.id, market: 'btts', pick: 'yes' });
+      u = reduceSoccer(u, { type: 'sidePrediction', gameId: g.id, market: 'total', pick: 'over' });
+      u = reduceSoccer(u, { type: 'sidePrediction', gameId: g.id, market: 'firstScorer', pick: scorer });
       // A result prediction is still allowed alongside side markets.
-      u = reduceSoccer(u, { type: 'betPlaced', gameId: g.id, teamId: g.homeId, amount: 1 });
+      u = reduceSoccer(u, { type: 'betPlaced', gameId: g.id, teamId: g.homeId });
     }
     expect(u.bets).toHaveLength(today.length * 4);
     u = runSoccerCommand(u, { type: 'endDay' }).state;

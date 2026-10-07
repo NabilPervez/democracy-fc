@@ -1,16 +1,12 @@
 import { useState } from 'react';
-import { getArena, getSignature } from '../../engine/soccer/arenas';
-import { soccerStars } from '../../engine/soccer/sport';
-import type { SoccerPlayer, SoccerStarGroup } from '../../engine/soccer/types';
 import { averageStars, benefit, clubView, coalitions, electionTotals } from '../../world/soccer/elections';
-import { soccerMod } from '../../world/soccer/weird';
 import {
-  BACK_SLOTS, clubOf, currentElection, electionVoteCost, FADE_SLOTS, fixturesOn, isKnockout, pickError, PICK_RATES, playoffSize, ROUND_NAMES, soccerStandings,
-  voteError, type SoccerUniverse,
+  clubOf, currentElection, electionVoteCost, fixturesOn, isKnockout, playoffSize, ROUND_NAMES, soccerStandings, voteError,
 } from '../../world/soccer/universe';
-import { Crest, DRIVE_INFO, POSITION_LABEL, Stars, Tip } from './bits';
+import { Crest, Tip } from './bits';
 import { HELP } from './help';
 import { MatchView } from './MatchView';
+import { ClubPage, Collection, PlayerPage } from './Profiles';
 import { useAssembly } from './store';
 
 // ---------------------------------------------------------------------------
@@ -204,204 +200,6 @@ export function Bracket() {
   );
 }
 
-const STYLE_LABEL: Record<string, string> = {
-  allOutAttack: 'All-Out Attack', counterPunch: 'Counter-Punch', possessionWall: 'Possession Wall', longBallSiege: 'Long-Ball Siege', parkTheBus: 'Park the Bus',
-};
-
-function ClubPage({ clubId }: { clubId: string }) {
-  const u = useAssembly((s) => s.u)!;
-  const { showDetail, dispatch } = useAssembly();
-  const club = clubOf(u, clubId);
-  const [confirm, setConfirm] = useState(false);
-  if (!club) return <p className="muted">That club has left the facility.</p>;
-  const switchable = club.id !== u.favoriteClubId && u.lastClubSwitchSeason !== u.season;
-  return (
-    <section>
-      <button className="link-btn" onClick={() => showDetail(null)}>
-        ← Facility
-      </button>
-      <div className="screen-head hero">
-        <Crest team={club} size={48} />
-        <h1>
-          {club.city} {club.name}
-        </h1>
-        <p className="muted">
-          <Tip label={`Style: ${STYLE_LABEL[club.style]}`} text={HELP.style} /> · <Tip label={`Fan base ${club.fanSize}`} text={HELP.fanBase} /> ·{' '}
-          <Tip label={`Home arena: ${getArena(club.arenaId).name}`} text={`${HELP.arena} ${getArena(club.arenaId).traits[0]}`} />
-        </p>
-      </div>
-      <div className="squad">
-        {club.squad.map((id, i) => {
-          const p = u.league.players[id];
-          if (!p) return null;
-          return (
-            <button key={id} className="card squad-row" onClick={() => showDetail({ kind: 'player', id })}>
-              <span className="muted small">{p.position}</span>
-              <span>
-                {p.name} {i >= 5 && <span className="muted small">(reserve)</span>}
-                {u.picks.back.includes(id) && <span className="pick-tag back">BACKED</span>}
-                {u.picks.fade.includes(id) && <span className="pick-tag fade">FADED</span>}
-                {u.injuries[id] ? <span className="badge hurts" style={{ marginLeft: 6 }}>Injured {u.injuries[id]}</span> : null}
-              </span>
-              <span className="drive-chip">
-                {DRIVE_INFO[p.drive].icon} {DRIVE_INFO[p.drive].label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      {club.id !== u.favoriteClubId && (
-        <div style={{ marginTop: 16 }}>
-          {!confirm ? (
-            <button className="btn" disabled={!switchable} onClick={() => setConfirm(true)}>
-              {switchable ? `Support the ${club.name} instead` : 'You already switched clubs this season'}
-            </button>
-          ) : (
-            <div className="card callout" role="alertdialog" aria-labelledby="switch-h" style={{ padding: 14 }}>
-              <p id="switch-h" style={{ marginTop: 0 }}>
-                <strong>Switch to the {club.name}?</strong> You'll lose all {u.coins} coins. You can't switch again until next season.
-              </p>
-              <button className="btn primary" onClick={() => void dispatch({ type: 'clubSwitched', clubId: club.id })}>
-                Switch and lose {u.coins} coins
-              </button>{' '}
-              <button className="btn" onClick={() => setConfirm(false)}>
-                Stay
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-const GROUP_LABEL: Record<SoccerStarGroup, string> = { attack: 'Attack', playmaking: 'Playmaking', defense: 'Defense', engine: 'Engine', keeping: 'Keeping' };
-
-/** What each star group is built from and what it does in a match (§B4). */
-export const GROUP_HELP: Record<SoccerStarGroup, string> = {
-  attack: 'Finishing, Dribbling and First Touch. Decides shot quality, beating a defender one-on-one, and keeping the ball under pressure.',
-  playmaking: 'Passing and Vision. Moves the ball up the floor, threads passes through a block, and makes teammates’ shots better.',
-  defense: 'Tackling, Positioning and Aerial. Wins the ball back, blocks shots, and deals with long balls and headers.',
-  engine: 'Pace, Stamina and Composure. Breakaways and counters, legs late in a half (tired players get subbed), and nerve in big moments and penalties.',
-  keeping: 'Reflexes and Handling. Stops shots, and holds on to them instead of parrying into a scramble. Keepers only.',
-};
-
-const STAT_HELP = {
-  apps: 'Appearances: matches they played in, starting or off the bench.',
-  goals: 'Goals scored (Spot Kicks and penalties included).',
-  assists: 'Assists: the pass or long ball right before a goal.',
-  saves: 'Saves: shots on target the keeper stopped.',
-  cleanSheets: 'Clean sheets: matches the keeper started without conceding.',
-};
-
-export function PlayerCard({ p, u }: { p: SoccerPlayer; u: SoccerUniverse }) {
-  const groups: SoccerStarGroup[] = p.position === 'K' ? ['keeping', 'defense', 'playmaking', 'engine'] : ['attack', 'playmaking', 'defense', 'engine'];
-  const sig = getSignature(p.signatureId);
-  const mods = (u.mods[p.id] ?? []).map((m) => soccerMod(m.id)).filter(Boolean);
-  const returned = mods.some((m) => m!.returnedOnly);
-  const bonds = Object.entries(p.bonds ?? {}).filter(([, n]) => n >= 3).map(([id]) => u.league.players[id]?.name).filter(Boolean);
-  const rivals = Object.entries(p.rivals ?? {}).filter(([, n]) => n >= 3).map(([id]) => u.league.players[id]?.name).filter(Boolean);
-  const line = u.seasonStats[p.id];
-  const cap = u.captaincy[p.id];
-  return (
-    <div className={`card pcard ${p.awakened ? 'awakened' : ''} ${returned ? 'returned' : ''}`}>
-      <p className="eyebrow">
-        {POSITION_LABEL[p.position]} · {clubOf(u, p.teamId)?.name ?? 'Unattached'}
-      </p>
-      <h2 style={{ margin: 0, color: 'var(--text)' }}>{p.name}</h2>
-      {p.catchphrase && <p className="muted" style={{ margin: 0 }}>“{p.catchphrase}”</p>}
-      <div className="star-groups">
-        {groups.map((g) => (
-          <span key={g} style={{ display: 'contents' }}>
-            <span className="muted">
-              <Tip label={GROUP_LABEL[g]} text={GROUP_HELP[g]} />
-            </span>
-            <Stars value={soccerStars(p, g)} label={GROUP_LABEL[g]} />
-          </span>
-        ))}
-      </div>
-      <p style={{ margin: 0 }}>
-        <span className="drive-chip">
-          {DRIVE_INFO[p.drive].icon} {DRIVE_INFO[p.drive].label}
-        </span>{' '}
-        <span className="muted small">{DRIVE_INFO[p.drive].text}</span>{' '}
-        <Tip label="Drive" text="A player's Drive is their personality on the floor: how often they shoot, pass or dribble, and when they're at their best. It never changes unless they Awaken or return from the Sub-Levels.">
-          <span className="sr-only">Drive</span>
-        </Tip>
-      </p>
-      {sig && (
-        <p style={{ margin: 0 }}>
-          ★ <strong>{sig.name}</strong> <span className="muted small">— {sig.text}.</span>
-        </p>
-      )}
-      {p.awakened && <p style={{ margin: 0, color: 'var(--secondary)' }}>✷ Awakened in season {p.awakened.seasonId}.</p>}
-      {mods.map((m) => (
-        <p key={m!.id} className="small" style={{ margin: 0 }}>
-          {m!.icon} <strong>{m!.name}</strong> <span className="muted">{m!.description}</span>
-        </p>
-      ))}
-      {bonds.length > 0 && <p className="small" style={{ margin: 0 }}>Bonds: {bonds.join(', ')}</p>}
-      {rivals.length > 0 && <p className="small" style={{ margin: 0 }}>Rivals: {rivals.join(', ')}</p>}
-      {cap && <p className="small muted" style={{ margin: 0 }}>Captained {cap.total}× {cap.streak >= 5 ? '· Fan Favorite' : ''}</p>}
-      {line && (
-        <p className="small muted" style={{ margin: 0, display: 'flex', flexWrap: 'wrap', gap: '2px 10px' }}>
-          <span>This season:</span>
-          <Tip label={`${line.apps} apps`} text={STAT_HELP.apps} />
-          <Tip label={`${line.goals} goals`} text={STAT_HELP.goals} />
-          <Tip label={`${line.assists} assists`} text={STAT_HELP.assists} />
-          {p.position === 'K' && <Tip label={`${line.saves} saves`} text={STAT_HELP.saves} />}
-          {p.position === 'K' && <Tip label={`${line.cleanSheets} clean sheets`} text={STAT_HELP.cleanSheets} />}
-        </p>
-      )}
-      <PickButtons p={p} u={u} />
-    </div>
-  );
-}
-
-/** Back or fade a player (picks): coins when a backed player delivers, or a faded one flops. */
-function PickButtons({ p, u }: { p: SoccerPlayer; u: SoccerUniverse }) {
-  const { dispatch } = useAssembly();
-  const backed = u.picks.back.includes(p.id);
-  const faded = u.picks.fade.includes(p.id);
-  const keeper = p.position === 'K';
-  const backText = keeper
-    ? `Each match: +${PICK_RATES.cleanSheet} for a clean sheet, +${PICK_RATES.save} per save, +${PICK_RATES.goal} per goal.`
-    : `Each match: +${PICK_RATES.goal} per goal, +${PICK_RATES.assist} per assist.`;
-  const fadeText = keeper ? `Each match they concede 4 or more: +${PICK_RATES.fadeLeaky} for every goal past 3.` : `Each match they play without a goal or assist: +${PICK_RATES.fadeBlank}.`;
-  const backErr = backed ? null : pickError(u, p.id, 'back');
-  const fadeErr = faded ? null : pickError(u, p.id, 'fade');
-  return (
-    <div style={{ display: 'grid', gap: 6, marginTop: 4 }}>
-      <div className="pick-btns">
-        <button className="chip" aria-pressed={backed} disabled={!!backErr} title={backErr ?? undefined} onClick={() => void dispatch({ type: 'pickSet', playerId: p.id, kind: backed ? null : 'back' })}>
-          {backed ? '★ Backed' : 'Back'}
-        </button>
-        <button className="chip fade" aria-pressed={faded} disabled={!!fadeErr} title={fadeErr ?? undefined} onClick={() => void dispatch({ type: 'pickSet', playerId: p.id, kind: faded ? null : 'fade' })}>
-          {faded ? '✕ Faded' : 'Fade'}
-        </button>
-        <Tip label="Picks" text={`Back up to ${BACK_SLOTS} players and fade up to ${FADE_SLOTS}. Back: ${backText} Fade: ${fadeText} Paid automatically after every match they're in.`} />
-      </div>
-      <span className="small muted">
-        Backing {u.picks.back.length}/{BACK_SLOTS} · Fading {u.picks.fade.length}/{FADE_SLOTS}
-      </span>
-    </div>
-  );
-}
-
-function PlayerPage({ playerId }: { playerId: string }) {
-  const u = useAssembly((s) => s.u)!;
-  const { showDetail } = useAssembly();
-  const p = u.league.players[playerId] ?? u.vanished.find((v) => v.player.id === playerId)?.player;
-  return (
-    <section>
-      <button className="link-btn" onClick={() => showDetail(p ? { kind: 'club', id: p.teamId } : null)}>
-        ← Club
-      </button>
-      {p ? <PlayerCard p={p} u={u} /> : <p className="muted">No record of this player.</p>}
-    </section>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Vote
 
@@ -424,7 +222,7 @@ export function VoteScreen() {
         <p className="eyebrow">Facility election · closes after day {e.closesDay}</p>
         <h1 id="vote-h">Vote</h1>
         <p className="muted small">
-          Every club's fans vote for what helps their club. Your votes join the {mine.team.name} bloc. <Tip label="Votes cost 2×n² coins" text={HELP.voteCost} />{u.persona === 'organizer' ? ' (20% off: Organizer)' : ''}.
+          Every club's fans vote for what helps their club. Your votes join the {mine.team.name} bloc. <Tip label="Votes cost 2×n² credibility" text={HELP.voteCost} />{u.persona === 'organizer' ? ' (20% off: Organizer)' : ''}.
         </p>
       </div>
       <label className="stake">
@@ -484,6 +282,10 @@ export function Archive() {
       <div className="screen-head hero">
         <h1 id="archive-h">Archive</h1>
       </div>
+      <h2>
+        <Tip label={`Your collection (${u.collection.length})`} text={HELP.collection} />
+      </h2>
+      <Collection />
       <h2>Seasons</h2>
       {!u.archive.length && <p className="muted">The first season is still being played.</p>}
       <ul className="feed">

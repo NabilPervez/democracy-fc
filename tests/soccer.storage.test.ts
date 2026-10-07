@@ -14,8 +14,8 @@ describe('saves', () => {
     const result = runSoccerCommand(u, { type: 'simDays', count: 2 });
     await persistSoccerCommand(u, result, d);
     const g = result.state.schedule.find((x) => x.day === result.state.currentDay)!;
-    const next = reduceSoccer(result.state, { type: 'betPlaced', gameId: g.id, teamId: g.homeId, amount: 5 });
-    await appendSoccerEvent(next, { type: 'betPlaced', gameId: g.id, teamId: g.homeId, amount: 5 }, d);
+    const next = reduceSoccer(result.state, { type: 'betPlaced', gameId: g.id, teamId: g.homeId });
+    await appendSoccerEvent(next, { type: 'betPlaced', gameId: g.id, teamId: g.homeId }, d);
     expect(await loadSoccer(u.id, d)).toEqual(next);
     const metas = await listUniverses(d);
     expect(metas[0].name).toBe('Stored');
