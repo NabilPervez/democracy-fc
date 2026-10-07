@@ -1,0 +1,51 @@
+{
+  "tactics": [
+    {
+      "id": "shootOnSight", "name": "Shoot on Sight", "blurb": "Shots from everywhere. Passing suffers.",
+      "bonus": { "finishing": 8 }, "penalty": { "passing": -6 },
+      "actions": { "shot": 140, "pass": 90 }, "longShots": true,
+      "styles": ["allOutAttack", "longBallSiege"], "beats": [], "lean": "attack"
+    },
+    {
+      "id": "tikiTaka", "name": "Tiki-Taka", "blurb": "Keep the ball. Pass, pass, pass.",
+      "bonus": { "passing": 8, "vision": 4 }, "penalty": { "finishing": -5 },
+      "actions": { "pass": 135, "longBall": 55, "shot": 85 }, "transition": "secure",
+      "styles": ["possessionWall"], "beats": ["counterBlitz", "airRaid"], "lean": "possession"
+    },
+    {
+      "id": "lockTheDoor", "name": "Lock the Door", "blurb": "Everyone behind the ball. Nothing gets through.",
+      "bonus": { "tackling": 8, "positioning": 6 }, "penalty": { "finishing": -8 },
+      "actions": { "shot": 70 }, "block": "low", "transition": "retreat", "opponentShotQuality": -10,
+      "styles": ["parkTheBus", "counterPunch"], "beats": ["shootOnSight", "showtime"], "lean": "defence"
+    },
+    {
+      "id": "counterBlitz", "name": "Counter Blitz", "blurb": "Win it and go. Straight at them.",
+      "bonus": { "pace": 8 }, "penalty": { "passing": -5 },
+      "actions": { "longBall": 120 }, "transition": "counter", "blitz": true,
+      "styles": ["counterPunch", "parkTheBus"], "beats": ["highPress", "shootOnSight"], "lean": "attack"
+    },
+    {
+      "id": "highPress", "name": "High Press", "blurb": "Hunt the ball in their half. Legs will burn.",
+      "bonus": { "tackling": 6 }, "penalty": {},
+      "actions": {}, "block": "high", "transition": "press", "staminaPct": 150,
+      "styles": ["allOutAttack", "possessionWall"], "beats": ["tikiTaka"], "lean": "attack"
+    },
+    {
+      "id": "airRaid", "name": "Air Raid", "blurb": "Long balls and headers. Set pieces matter.",
+      "bonus": { "aerial": 8 }, "penalty": { "dribbling": -6 },
+      "actions": { "longBall": 190, "dribble": 80 }, "setPieceBonus": 6,
+      "styles": ["longBallSiege"], "beats": ["lockTheDoor"], "lean": "defence"
+    },
+    {
+      "id": "showtime", "name": "Showtime", "blurb": "Tricks, flicks, highlight goals and giveaways.",
+      "bonus": { "dribbling": 8 }, "penalty": { "composure": -6 },
+      "actions": { "dribble": 165, "wallPass": 140 },
+      "styles": ["allOutAttack"], "beats": ["highPress"], "lean": "possession"
+    }
+  ],
+  "blocs": [
+    { "id": "old-guard", "name": "The Old Guard", "lean": "defence", "share": 35 },
+    { "id": "ultras", "name": "The Ultras", "lean": "attack", "share": 40 },
+    { "id": "tacticians", "name": "The Tacticians", "lean": "possession", "share": 25 }
+  ]
+}

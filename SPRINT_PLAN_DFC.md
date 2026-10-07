@@ -78,13 +78,13 @@ Universe runs soccer seasons end to end (league/schedule/results/stats through t
 - [x] Top club votes against "best record" sabotage.
 - [x] Player coins measurably swing a close election.
 
-## S6b — Matchday Ballot — ⬜
+## S6b — Matchday Ballot — ✅
 `tactics.json`, ballot generation (3 tactics + 3 captains), supporter blocs, free + quadratic votes, resolution at kickoff as a world event, captain bonus/burden, recap cause lines.
 
 **DoD**
-- [ ] Ballots resolve identically on replay.
-- [ ] Each tactic moves its target stat the right way over 500 matches; counters give a measurable edge.
-- [ ] Skipping the ballot never blocks a match.
+- [x] Ballots resolve identically on replay.
+- [x] Each tactic moves its target stat the right way over 500 matches; counters give a measurable edge.
+- [x] Skipping the ballot never blocks a match.
 
 ## S7 — UI conversion — ⬜
 Relabel tabs (Bulletin / Matches / Facility / Vote / Archive), Live Pitch View + Play Log, minute clock, Key Moments, W/D/L table, helps/hurts + coalition bars, club picker, PlayerCard drives, onboarding copy, "Predictions" copy everywhere.
@@ -178,3 +178,11 @@ Winner-assumption checklist (from grep) and what happened to each:
 - World: weekly ballots open at creation (`createSoccerWorld`) and every 7 days; `votesBought` adds the player's votes to their club's bloc; winning rules apply as `activeRules` (engine `MatchRules`: goal values, Spot Kick threshold, power-play length; arena overrides; forced facility events; facility chance) or `clubEffects` (sabotage arena / boost deltas counted down per match); Ejection count per season; Return brings a player back with a permanent mod and a new Drive.
 - Match summaries carry `bonusPoints` when a rule made a goal count double.
 - `tests/elections.clubs.test.ts` (6 tests). 293 tests pass, lint + typecheck clean. **S6 done.**
+
+### S6b — 2026-10-07
+- `content/soccer/tactics.json`: the 7 tactics (bonus, penalty, action weights, block/transition preference, Counter Blitz skip, Lock the Door shot-quality cut, High Press stamina ×1.5, Air Raid set-piece bonus, fitting Styles, `beats[]`) and 3 supporter blocs (Old Guard / Ultras / Tacticians).
+- Engine (`engine/soccer/tactics.ts` + `opts.matchday`): tactic deltas with **+5 counter bonus** and **−3 unfamiliar** penalty (tactic doesn't fit the club's Style); the elected **captain** gets +6 Composure, an amplified Drive and takes the penalties.
+- World (`world/soccer/matchday.ts` + universe): seeded ballot per club per match (3 tactics weighted to fit, 3 captains by form with Drive variety), simulated supporter-bloc votes scaled by fan size (lower after a Captain's Burden), public **tactic lean** for scouting, player's votes on their own club only (1 free vote per question, extras n²), resolution at kickoff recorded on the match summary, "The fans have spoken" line, **Captain's Bonus** (+10 coins when the backed captain scores/assists/keeps a clean sheet), **Captain's Burden** (red card or missed penalty), captaincy streaks (**Fan Favorite** at 5 and 9).
+- Election votes now cost 2n² (PRD: elections have a higher base than matchday votes' n²).
+- `world/soccer/recap.ts`: recap cause lines (tactic vote + possession + counters, Director events, arena, double-goal rules, burden).
+- `tests/matchday.test.ts` (8 tests). 301 tests pass, lint + typecheck clean. **S6b done.**

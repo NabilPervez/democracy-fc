@@ -237,5 +237,5 @@ export function electionWinner(totals: number[]): number {
   return best;
 }
 
-/** Coins to own `n` votes on one proposal in one election (quadratic). */
-export const soccerVotesCost = (n: number) => votesCost(n, false);
+/** Coins to own `n` votes on one proposal in one election: quadratic, at twice the Matchday rate (§B7a). */
+export const soccerVotesCost = (n: number) => 2 * votesCost(n, false);

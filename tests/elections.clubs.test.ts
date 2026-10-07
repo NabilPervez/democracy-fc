@@ -104,13 +104,15 @@ describe('club fan-base voting (S6)', () => {
   });
 
   it('a Return election brings a Vanished player back, changed', () => {
-    let u = runSoccerCommand(createSoccerWorld('u', settings({ seed: 'return', chaos: 'unhinged' }), null, 0), { type: 'simDays', count: 14 }).state;
+    let u = createSoccerWorld('u', settings({ seed: 'return', chaos: 'unhinged' }), null, 0);
+    for (let d = 0; d < 60 && !u.vanished.length; d++) u = runSoccerCommand(u, { type: 'endDay' }).state;
     const gone = u.vanished[0];
     expect(gone).toBeDefined();
     const e = currentElection(u)!;
     const ballot = [...e.proposals, { id: `return-${gone.player.id}`, title: 'Bring them back', type: 'return' as const, description: '', effect: { kind: 'return' as const, playerId: gone.player.id }, favors: {}, hurts: {}, factionLean: {} }];
-    u = { ...u, elections: u.elections.map((x) => (x.id === e.id ? { ...x, proposals: ballot, playerVotes: [...x.playerVotes, 0], clubVotes: Object.fromEntries(Object.entries(x.clubVotes).map(([k, v]) => [k, [...v, 0]])), factionVotes: Object.fromEntries(Object.entries(x.factionVotes).map(([k, v]) => [k, [...v, 0]])) } : x)), coins: 100_000 };
+    u = { ...u, elections: u.elections.map((x) => (x.id === e.id ? { ...x, proposals: ballot, playerVotes: [...x.playerVotes, 0], clubVotes: Object.fromEntries(Object.entries(x.clubVotes).map(([k, v]) => [k, [...v, 0]])), factionVotes: Object.fromEntries(Object.entries(x.factionVotes).map(([k, v]) => [k, [...v, 0]])) } : x)), coins: 1_000_000 };
     u = reduceSoccer(u, { type: 'votesBought', electionId: e.id, proposal: ballot.length - 1, count: 300 });
+    expect(currentElection(u)!.playerVotes.at(-1)).toBe(300);
     u = runSoccerCommand(u, { type: 'simDays', count: e.closesDay - u.currentDay + 1 }).state;
     const back = u.league.players[gone.player.id];
     expect(back).toBeDefined();

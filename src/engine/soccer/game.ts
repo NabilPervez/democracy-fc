@@ -1,10 +1,11 @@
 import { createRng, type Rng } from '../core/rng';
 import { getArena, getSignature, type ArenaEffects, type SignatureDef, type SignatureTrigger } from './arenas';
 import { selectLineup } from './lineup';
+import { getTactic, tacticDeltas, type TacticDef } from './tactics';
 import { BLOCK_PHASE, chooseBlock, chooseSetup, IN_POSSESSION, laneOfSlot, rollTransition, SETUP_SHOT_BONUS } from './phase';
 import type {
   Block, Lane, Phase, ShotOutcome, SoccerEvent, SoccerFixture, SoccerLeague, SoccerPlayer, SoccerPosition, SoccerRatingKey,
-  SoccerResult, SoccerTeam, Style, Zone,
+  SoccerResult, SoccerTeam, Style, TacticId, Zone,
 } from './types';
 
 /**
@@ -84,6 +85,10 @@ interface Side {
   yellows: Record<string, number>;
   /** Red card power play: the emptied slot (shown as '' in `five`) and when a reserve may come on. */
   short: { slot: number; until: number } | null;
+  /** Matchday Ballot (§B7a): the fans' tactic and captain. */
+  tactic?: TacticDef;
+  tacticDeltas: Partial<Record<SoccerRatingKey, number>>;
+  captain?: string;
 }
 
 interface MatchState {
@@ -133,6 +138,12 @@ function rating(s: MatchState, side: Side, id: string, key: SoccerRatingKey): nu
   const p = s.league.players[id];
   let v = p.ratings[key] + (side.swing[id] ?? 0) + (side.home ? HOME_BONUS : 0);
   v += (s.teamDeltas['*']?.[key] ?? 0) + (s.teamDeltas[side.team.id]?.[key] ?? 0) + (s.playerDeltas[id]?.[key] ?? 0);
+  v += side.tacticDeltas[key] ?? 0;
+  // The elected captain: +6 Composure, and their Drive is amplified.
+  if (id === side.captain) {
+    if (key === 'composure') v += 6 + (p.drive === 'ice' ? 5 : 0);
+    if (p.drive === 'wall' && (key === 'tackling' || key === 'positioning')) v += 4;
+  }
   // Fatigue: below 60 stamina, every 4 points lost costs 1.
   const st = s.stamina[id] ?? 100;
   if (st < 60) v -= Math.trunc((60 - st) / 4);
@@ -187,8 +198,14 @@ function pickAction(s: MatchState, side: Side, carrier: string, zone: Zone, step
   const style = STYLE_WEIGHTS[side.team.style];
   const drive = DRIVE_WEIGHTS[s.league.players[carrier].drive] ?? {};
   const isKeeper = side.five[0] === carrier;
+  const tactic = side.tactic;
+  const captain = side.captain === carrier;
   const weights = ACTIONS.map((a) => {
-    let w = ZONE_WEIGHTS[zone][a] * style[a] * (drive[a] ?? 100);
+    let base = ZONE_WEIGHTS[zone][a];
+    if (a === 'shot' && zone === 'mid' && tactic?.longShots) base *= 3;
+    let w = base * style[a] * (drive[a] ?? 100) * (tactic?.actions[a] ?? 100);
+    // A captain plays even more like themselves.
+    if (captain && drive[a] && drive[a] !== 100) w = Math.trunc((w * (drive[a] > 100 ? 125 : 80)) / 100);
     if (isKeeper && a !== 'pass' && a !== 'longBall') w = 0;
     // Wall passes are a Wing specialty.
     if (a === 'wallPass' && side.five.indexOf(carrier) !== 2 && side.five.indexOf(carrier) !== 3) w = 0;
@@ -210,7 +227,7 @@ function drainStamina(s: MatchState, seconds: number) {
       // Keepers barely tire; outfielders lose more the lower their Stamina rating.
       const base = side.five[0] === id ? 1 : 3 + Math.trunc((100 - rating(s, side, id, 'stamina')) / 20);
       const press = s.blocks[side.team.id] === 'high' ? 5 : 4; // High Block: ×1.25
-      const cold = s.arena.staminaPct ?? 100;
+      const cold = (s.arena.staminaPct ?? 100) * (side.tactic?.staminaPct ?? 100) / 100;
       s.stamina[id] = Math.max(0, (s.stamina[id] ?? 100) - Math.trunc((base * seconds * press * cold) / 33000));
     }
     for (const id of side.bench) s.stamina[id] = Math.min(100, (s.stamina[id] ?? 100) + Math.trunc(seconds / 6));
@@ -304,6 +321,8 @@ function removePlayer(s: MatchState, side: Side, id: string, red: boolean) {
 
 /** Best spot-kick taker on the floor: Finishing + Composure. */
 function penaltyTaker(s: MatchState, side: Side): string {
+  // The elected captain takes them (§B7a).
+  if (side.captain && side.five.indexOf(side.captain) > 0) return side.captain;
   const outfield = side.five.filter((id, i) => id && i > 0);
   const score = (id: string) => rating(s, side, id, 'finishing') + rating(s, side, id, 'composure');
   return outfield.reduce((best, id) => (score(id) > score(best) ? id : best));
@@ -434,6 +453,8 @@ function shoot(s: MatchState, att: Side, def: Side, shooter: string, zone: Zone,
   const lowBlock = s.blocks[def.team.id] === 'low';
   if (lowBlock) quality -= 8;
   if (wall) quality += -6 + (s.arena.wallShotQuality ?? 0);
+  quality += def.tactic?.opponentShotQuality ?? 0;
+  if (shooter === att.captain && p.drive === 'predator') quality += 4;
   if (downhill(s, att)) quality += s.arena.downhillQuality ?? 0;
   const sig = trySignature(s, att, zone, shooter, wall ? 'wallShot' : 'shot');
   if (sig) quality += sig.effect.quality ?? 0;
@@ -496,7 +517,7 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
 
   // The defending block for this chain (Style + score state).
   const lead = (def.home ? 1 : -1) * (s.score.home - s.score.away);
-  const block = chooseBlock(s.rng, { style: def.team.style, lead, secondsLeft: s.half === 2 ? s.halfEnd - s.second : s.halfEnd - s.second + HALF_SECONDS });
+  const block = chooseBlock(s.rng, { style: def.team.style, lead, secondsLeft: s.half === 2 ? s.halfEnd - s.second : s.halfEnd - s.second + HALF_SECONDS, prefer: def.tactic?.block });
   if (s.blocks[def.team.id] !== block) {
     s.blocks[def.team.id] = block;
     emit(s, att, zone, { kind: 'blockChange', teamId: def.team.id, block });
@@ -516,6 +537,10 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
       loserBlock: s.blocks[def.team.id],
       pace: rating(s, att, carrier, 'pace'),
       tackling: rating(s, def, presser, 'tackling'),
+      forceCounter: att.tactic?.transition === 'counter',
+      forceSecure: att.tactic?.transition === 'secure',
+      forcePress: def.tactic?.transition === 'press',
+      forceRetreat: def.tactic?.transition === 'retreat',
     });
     emit(s, att, zone, { kind: 'transition', wonBy: att.team.id, lostBy: def.team.id, wonByBlock: s.blocks[att.team.id] ?? 'mid', ...t, phase: 'attTransition', defPhase: 'defTransition' });
     if (t.outcome === 'regained') {
@@ -526,7 +551,7 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
       // A failed counter-press in 5v5 leaves a 2v1 or a run at the keeper.
       zone = 'att';
       bonus = 10;
-    } else if (t.attChoice === 'counter') zone = ADVANCE[zone];
+    } else if (t.attChoice === 'counter') zone = att.tactic?.blitz && zone === 'def' ? 'att' : ADVANCE[zone];
     else zone = 'def';
   }
   s.second += s.rng.range(8, 16);
@@ -576,7 +601,7 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
       }
       const conductor = s.league.players[carrier].drive === 'conductor';
       assist = carrier;
-      bonus = nextZone === 'att' ? 6 + (conductor ? 6 : 0) + (bond ? 4 : 0) + (silk?.effect.quality ?? 0) + Math.trunc((rating(s, att, carrier, 'vision') - 50) / 8) : 0;
+      bonus = nextZone === 'att' ? 6 + (conductor ? 6 + (carrier === att.captain ? 4 : 0) : 0) + (bond ? 4 : 0) + (silk?.effect.quality ?? 0) + Math.trunc((rating(s, att, carrier, 'vision') - 50) / 8) : 0;
       hold(to);
       zone = nextZone;
       continue;
@@ -596,7 +621,7 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
         if (!att.five.includes(carrier)) carrier = penaltyTaker(s, att);
         // Free kick: in the attacking third the taker may go straight for goal.
         if (zone === 'att' && s.rng.chance(550)) {
-          const shot = shoot(s, att, def, carrier, zone, -10 + SETUP_SHOT_BONUS[s.setup ?? 'man'], undefined);
+          const shot = shoot(s, att, def, carrier, zone, -10 + SETUP_SHOT_BONUS[s.setup ?? 'man'] + (att.tactic?.setPieceBonus ?? 0), undefined);
           if ('next' in shot) return shot.next;
           hold(shot.keep);
         }
@@ -665,6 +690,10 @@ export interface SoccerSimOptions {
   facilityEvents?: { eventId: string; text: string }[];
   /** Match rules voted in by the fans (§B7). */
   rules?: MatchRules;
+  /** Matchday Ballot results per team id (§B7a), resolved before kickoff. */
+  matchday?: Record<string, { tactic?: TacticId; captainId?: string }>;
+  /** Test hook: switch off the counter-tactic bonus to measure it. */
+  disableCounters?: boolean;
 }
 
 export interface MatchRules {
@@ -722,7 +751,12 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
     const bench = team.squad.filter((id) => !five.includes(id) && !opts.unavailable?.has(id) && league.players[id]);
     const swing: Record<string, number> = {};
     for (const id of [...five, ...bench]) if (league.players[id].drive === 'spark') swing[id] = rng.range(-12, 12);
-    return { team, home, five, bench, swing, fouls: 0, yellows: {}, short: null };
+    const ballot = opts.matchday?.[teamId];
+    const opp = opts.matchday?.[home ? game.awayId : game.homeId]?.tactic;
+    const tactic = getTactic(ballot?.tactic);
+    const deltas = tactic ? tacticDeltas(tactic, team.style, opp, !opts.disableCounters) : {};
+    const captain = ballot?.captainId && team.squad.includes(ballot.captainId) ? ballot.captainId : undefined;
+    return { team, home, five, bench, swing, fouls: 0, yellows: {}, short: null, tactic, tacticDeltas: deltas, captain };
   };
   const home = league.teams.find((t) => t.id === game.homeId)!;
   const arena = getArena(opts.arenaId ?? home.arenaId);

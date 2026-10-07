@@ -16,6 +16,12 @@ import {
   generateSoccerProposals, soccerVotesCost, type SoccerElection, type SoccerProposal,
 } from './elections';
 import type { MatchRules } from '../../engine/soccer/game';
+import { getTactic } from '../../engine/soccer/tactics';
+import { phaseStats } from '../../engine/soccer/phase';
+import {
+  ballotOptions, ballotVoteCost, CAPTAIN_BONUS, resolveBallot, simulatedFanVotes, tacticLean,
+  type BallotOptions, type BallotQuestion, type BallotResult, type PlayerBallot,
+} from './matchday';
 
 /**
  * Democracy FC world (PRD Part B): The Assembly's league, run as an event-sourced state like the
@@ -55,6 +61,12 @@ export interface SoccerMatchSummary {
   facility?: string[];
   /** Extra points from goals a Facility rule made count double. */
   bonusPoints?: number;
+  /** Matchday Ballot results per club (§B7a). */
+  ballot?: Record<string, BallotResult>;
+  /** Home side's share of possession, percent (from phase time). */
+  homePossession?: number;
+  /** Clubs whose captain was sent off or missed a penalty (Captain's Burden). */
+  burden?: string[];
   arenaId: string;
 }
 
@@ -148,6 +160,12 @@ export interface SoccerUniverse {
   activeRules: ActiveRule[];
   /** Sabotage / boost on specific clubs, counted down per match. */
   clubEffects: ClubEffect[];
+  /** The player's Matchday Ballot votes, by match. */
+  ballots: Record<string, PlayerBallot>;
+  /** Clubs whose fans are demoralised (Captain's Burden): matches left. */
+  morale: Record<string, number>;
+  /** Captaincy record per player: total and current streak (Fan Favorite). */
+  captaincy: Record<string, { total: number; streak: number }>;
 }
 
 export interface ActiveRule {
@@ -173,6 +191,7 @@ export type SoccerWorldEvent =
   | { type: 'betPlaced'; gameId: string; teamId: string; amount: number }
   | { type: 'clubSwitched'; clubId: string }
   | { type: 'votesBought'; electionId: number; proposal: number; count: number }
+  | { type: 'ballotVote'; gameId: string; question: BallotQuestion; option: number; count: number }
   | { type: 'dayEnded'; day: number };
 
 export type SoccerCommand =
@@ -249,6 +268,9 @@ export function createSoccerUniverse(id: string, settings: SoccerSettings, favor
     elections: [],
     activeRules: [],
     clubEffects: [],
+    ballots: {},
+    morale: {},
+    captaincy: {},
   };
 }
 
@@ -286,6 +308,43 @@ export function matchOdds(s: SoccerUniverse, gameId: string) {
 }
 
 /** Everything the engine needs for one match, derived only from the state (so replays match). */
+// ---------------------------------------------------------------------------
+// Matchday Ballot (§B7a)
+
+export interface MatchBallot {
+  options: BallotOptions;
+  fans: { tactic: number[]; captain: number[] };
+  /** Public tactic lean of this club's fans, percent per option. */
+  lean: number[];
+}
+
+/** A club's ballot for one match: options and the simulated fans' votes (both seeded and public). */
+export function matchBallot(s: SoccerUniverse, gameId: string, teamId: string): MatchBallot {
+  const team = clubOf(s, teamId)!;
+  const seed = [s.settings.seed, s.season, gameId];
+  const options = ballotOptions(s.league, team, seed, s.seasonStats, unavailable(s));
+  const fans = simulatedFanVotes(team, options, seed, s.seasonStats, (s.morale[teamId] ?? 0) > 0);
+  return { options, fans, lean: tacticLean(fans) };
+}
+
+export function ballotError(s: SoccerUniverse, gameId: string, question: BallotQuestion, option: number, count: number): string | null {
+  const game = s.schedule.find((g) => g.id === gameId);
+  if (!game) return 'No such match.';
+  if (game.homeId !== s.favoriteClubId && game.awayId !== s.favoriteClubId) return 'You can only vote on your own club’s ballot.';
+  if (game.day !== s.currentDay) return 'This ballot is not open.';
+  if (s.results[gameId] || s.started.includes(gameId)) return 'The ballot closed at kickoff.';
+  if (option < 0 || option >= 3) return 'No such option.';
+  if (!Number.isInteger(count) || count < 1) return 'Cast at least 1 vote.';
+  const mine = s.ballots[gameId]?.[question] ?? [0, 0, 0];
+  if (ballotVoteCost(mine, count) > s.coins) return 'Not enough coins.';
+  return null;
+}
+
+export function resolveMatchBallot(s: SoccerUniverse, gameId: string, teamId: string): BallotResult {
+  const b = matchBallot(s, gameId, teamId);
+  return resolveBallot(b.options, b.fans, teamId === s.favoriteClubId ? s.ballots[gameId] : undefined);
+}
+
 /** Rules in force today. */
 export const rulesInForce = (s: SoccerUniverse) => s.activeRules.filter((r) => r.season === s.season && r.untilDay >= s.currentDay);
 
@@ -336,6 +395,10 @@ export function matchInputs(s: SoccerUniverse, game: SoccerFixture): { opts: Soc
       facilityEvents: events,
       rules: matchRules,
       arenaId,
+      matchday: Object.fromEntries([game.homeId, game.awayId].map((id) => {
+        const r = resolveMatchBallot(s, game.id, id);
+        return [id, { tactic: r.tactic, captainId: r.captainId }];
+      })),
     },
     facility: facility.events.map((e) => e.eventId),
   };
@@ -475,6 +538,7 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
           timeline: withTimeline(next, 'awakening', text),
         };
       }
+      next = afterBallot(next, summary, box);
       const winner = summary.shootout?.winnerId ?? matchWinner(summary);
       if (winner && winner === state.favoriteClubId) {
         next = { ...next, coins: next.coins + FAVORITE_WIN_BONUS, ledger: withLedger(next, FAVORITE_WIN_BONUS, `Your ${clubOf(next, winner)?.name} won`) };
@@ -525,6 +589,19 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
       return { ...state, elections, coins: state.coins - cost, ledger: withLedger(state, -cost, `Votes: ${e.proposals[event.proposal].title}`) };
     }
 
+    case 'ballotVote': {
+      if (ballotError(state, event.gameId, event.question, event.option, event.count)) return state;
+      const prev = state.ballots[event.gameId] ?? { tactic: [0, 0, 0], captain: [0, 0, 0], coinsSpent: 0 };
+      const cost = ballotVoteCost(prev[event.question], event.count);
+      const updated: PlayerBallot = { ...prev, [event.question]: prev[event.question].map((v, i) => (i === event.option ? v + event.count : v)), coinsSpent: prev.coinsSpent + cost };
+      return {
+        ...state,
+        ballots: { ...state.ballots, [event.gameId]: updated },
+        coins: state.coins - cost,
+        ledger: cost ? withLedger(state, -cost, 'Matchday Ballot votes') : state.ledger,
+      };
+    }
+
     case 'dayEnded': {
       if (event.day !== state.currentDay) return state;
       if (state.phase === 'offseason') return newSeason(state);
@@ -547,6 +624,47 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
     }
   }
 }
+
+/** Ballot follow-up: the announcement, captaincy streaks, Captain's Bonus and Captain's Burden. */
+function afterBallot(s: SoccerUniverse, summary: SoccerMatchSummary, box: Record<string, SoccerStatLine>): SoccerUniverse {
+  if (!summary.ballot) return s;
+  let next = s;
+  const captaincy = { ...s.captaincy };
+  const morale = { ...s.morale };
+  for (const [clubId, r] of Object.entries(summary.ballot)) {
+    if ((morale[clubId] ?? 0) > 0) morale[clubId]--;
+    const club = clubOf(s, clubId);
+    for (const id of club?.squad ?? []) if (id !== r.captainId && captaincy[id]) captaincy[id] = { ...captaincy[id], streak: 0 };
+    const c = captaincy[r.captainId] ?? { total: 0, streak: 0 };
+    captaincy[r.captainId] = { total: c.total + 1, streak: c.streak + 1 };
+    if (summary.burden?.includes(clubId)) morale[clubId] = 1;
+  }
+  next = { ...next, captaincy, morale };
+  const mine = summary.ballot[s.favoriteClubId];
+  if (mine) {
+    const name = s.league.players[mine.captainId]?.name ?? 'someone';
+    const tactic = getTactic(mine.tactic)?.name ?? mine.tactic;
+    const lines: string[] = [`The fans have spoken: ${tactic.toUpperCase()} (${mine.tacticPct}%). Captain: ${name}.`];
+    const streak = captaincy[mine.captainId]?.streak ?? 0;
+    if (streak === 5 || streak === 9) lines.push(`${name} has been elected captain ${streak} times in a row. Fan Favorite.`);
+    // Captain's Bonus: the player backed the captain, and the captain delivered.
+    const myVotes = s.ballots[summary.gameId];
+    const opts = matchBallot(s, summary.gameId, s.favoriteClubId).options;
+    const backed = myVotes && myVotes.captain[opts.captains.indexOf(mine.captainId)] > 0;
+    const line = box[mine.captainId];
+    const pos = s.league.players[mine.captainId]?.position;
+    const delivered = !!line && (line.goals > 0 || line.assists > 0 || ((pos === 'K' || pos === 'A') && cleanSheet(summary, s.favoriteClubId)));
+    if (backed && delivered) {
+      next = { ...next, coins: next.coins + CAPTAIN_BONUS, ledger: withLedger(next, CAPTAIN_BONUS, `Captain's Bonus: ${name}`) };
+      lines.push(`Captain's Bonus: ${name} delivered. +${CAPTAIN_BONUS} coins.`);
+    }
+    if (summary.burden?.includes(s.favoriteClubId)) lines.push(`Captain's Burden: ${name} let the fans down. Morale is low for the next ballot.`);
+    next = { ...next, news: withNews(next, lines, summary.day) };
+  }
+  return next;
+}
+
+const cleanSheet = (r: SoccerMatchSummary, clubId: string) => (r.homeId === clubId ? r.awayScore === 0 : r.homeScore === 0);
 
 function expireMods(mods: Record<string, ActiveMod[]>, season: number, day: number): Record<string, ActiveMod[]> {
   const out: Record<string, ActiveMod[]> = {};
@@ -766,6 +884,23 @@ function newSeason(s: SoccerUniverse): SoccerUniverse {
 // ---------------------------------------------------------------------------
 // Commands
 
+const IN_POSSESSION_PHASES = ['buildUp', 'progression', 'creation', 'attTransition', 'attSetPiece'] as const;
+
+function possessionPct(r: SoccerResult): number {
+  const st = phaseStats(r);
+  const time = (id: string) => IN_POSSESSION_PHASES.reduce((n, p) => n + st[id].seconds[p], 0);
+  const home = time(r.homeId);
+  const away = time(r.awayId);
+  return Math.round((home * 100) / Math.max(1, home + away));
+}
+
+function burdenOf(r: SoccerResult, matchday: Record<string, { captainId?: string }>): string[] | undefined {
+  const out = Object.entries(matchday).filter(([, b]) =>
+    r.events.some((e) => (e.kind === 'card' && e.color === 'red' && e.playerId === b.captainId) || (e.kind === 'penalty' && !e.scored && e.takerId === b.captainId)),
+  ).map(([id]) => id);
+  return out.length ? out : undefined;
+}
+
 export function runSoccerCommand(start: SoccerUniverse, cmd: SoccerCommand): SoccerCommandResult {
   let state = start;
   const events: SoccerWorldEvent[] = [];
@@ -785,6 +920,9 @@ export function runSoccerCommand(start: SoccerUniverse, cmd: SoccerCommand): Soc
         gameId: game.id, day: game.day, homeId: r.homeId, awayId: r.awayId, homeScore: r.homeScore, awayScore: r.awayScore,
         shootout: r.shootout, knockout: opts.knockout || undefined, facility: facility.length ? facility : undefined, arenaId: r.arenaId,
         bonusPoints: r.events.reduce((n, e) => n + (e.kind === 'goal' && e.value ? e.value - 1 : 0), 0) || undefined,
+        ballot: Object.fromEntries([game.homeId, game.awayId].map((id) => [id, resolveMatchBallot(state, game.id, id)])),
+        homePossession: possessionPct(r),
+        burden: burdenOf(r, opts.matchday ?? {}),
       },
       box: soccerBoxScore(r),
       injuries: r.injuries,
