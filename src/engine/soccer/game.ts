@@ -109,6 +109,8 @@ interface MatchState {
   sigUses: Record<string, number>;
   awakenings: string[];
   allowAwakening: boolean;
+  teamDeltas: Record<string, Partial<Record<SoccerRatingKey, number>>>;
+  playerDeltas: Record<string, Partial<Record<SoccerRatingKey, number>>>;
   injuries: Record<string, number>;
   events: SoccerEvent[];
 }
@@ -129,6 +131,7 @@ function swingMomentum(s: MatchState, toward: Side, amount: number) {
 function rating(s: MatchState, side: Side, id: string, key: SoccerRatingKey): number {
   const p = s.league.players[id];
   let v = p.ratings[key] + (side.swing[id] ?? 0) + (side.home ? HOME_BONUS : 0);
+  v += (s.teamDeltas['*']?.[key] ?? 0) + (s.teamDeltas[side.team.id]?.[key] ?? 0) + (s.playerDeltas[id]?.[key] ?? 0);
   // Fatigue: below 60 stamina, every 4 points lost costs 1.
   const st = s.stamina[id] ?? 100;
   if (st < 60) v -= Math.trunc((60 - st) / 4);
@@ -651,6 +654,12 @@ export interface SoccerSimOptions {
   arenaId?: string;
   /** False once the season's Awakening cap is reached (default true). */
   allowAwakening?: boolean;
+  /** Rating changes for this match by team id ('*' = everyone): mods, Facility rules, Director events. Integer deltas. */
+  teamDeltas?: Record<string, Partial<Record<SoccerRatingKey, number>>>;
+  /** Per-player rating changes (player mods). */
+  playerDeltas?: Record<string, Partial<Record<SoccerRatingKey, number>>>;
+  /** Director announcements logged at kickoff. */
+  facilityEvents?: { eventId: string; text: string }[];
 }
 
 /** 5 kicks each, then sudden death; every player on the floor takes one before anyone goes twice. */
@@ -720,10 +729,13 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
     sigUses: {},
     awakenings: [],
     allowAwakening: opts.allowAwakening ?? true,
+    teamDeltas: opts.teamDeltas ?? {},
+    playerDeltas: opts.playerDeltas ?? {},
     injuries: {},
     events: [],
   };
   const lineups = { home: [...s.sides[0].five], away: [...s.sides[1].five] };
+  for (const f of opts.facilityEvents ?? []) emit(s, s.sides[0], undefined, { kind: 'facilityEvent', eventId: f.eventId, text: f.text, phase: 'attSetPiece', defPhase: 'defSetPiece' });
 
   // Home kicks off the first half, away the second.
   for (const half of [1, 2] as const) {

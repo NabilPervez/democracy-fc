@@ -1,0 +1,54 @@
+{
+  "id": "assembly-core",
+  "name": "The Assembly",
+  "eventChancePerMille": { "calm": 60, "normal": 180, "weird": 380, "unhinged": 650 },
+  "vanishPerSeason": { "calm": 0.5, "normal": 2, "weird": 4, "unhinged": 8 },
+  "facilityEventPerMille": { "calm": 30, "normal": 90, "weird": 200, "unhinged": 350 },
+  "vanishCauses": [
+    "walked into the lower training wing and the door sealed behind them.",
+    "was called to the Sub-Levels for \"a short assessment\". Nobody has seen them since.",
+    "took the service lift down after midnight. The lift came back empty.",
+    "was last seen on a corridor camera, walking toward a door that isn't on the floor plan.",
+    "stayed behind after a closed-door drill. The arena lights went off with them still inside.",
+    "received a sealed envelope at breakfast and left the Wing without finishing their tea."
+  ],
+  "returnTexts": [
+    "came back up from the Sub-Levels. They won't say what's down there.",
+    "walked out of the service lift at dawn, in a kit nobody issued.",
+    "was found asleep in the Glass Box, boots still laced. Something has changed."
+  ],
+  "playerMods": [
+    { "id": "running-hot", "name": "Running Hot", "icon": "✶", "description": "+8 finishing, −6 composure.", "delta": { "finishing": 8, "composure": -6 }, "innate": true },
+    { "id": "glass-boots", "name": "Glass Boots", "icon": "◇", "description": "+10 dribbling. Breaks easily.", "delta": { "dribbling": 10, "stamina": -6 }, "innate": true },
+    { "id": "tunnel-vision", "name": "Tunnel Vision", "icon": "◉", "description": "+8 finishing, −8 passing.", "delta": { "finishing": 8, "passing": -8 }, "innate": true },
+    { "id": "blessed", "name": "Blessed", "icon": "✦", "description": "+5 finishing, passing and composure.", "delta": { "finishing": 5, "passing": 5, "composure": 5 }, "innate": true },
+    { "id": "cursed", "name": "Cursed", "icon": "✕", "description": "−6 first touch and composure.", "delta": { "firstTouch": -6, "composure": -6 }, "innate": true },
+    { "id": "magnetized", "name": "Magnetized", "icon": "◆", "description": "+10 tackling, −5 pace.", "delta": { "tackling": 10, "pace": -5 }, "innate": true },
+    { "id": "night-shift", "name": "Night Shift", "icon": "☾", "description": "Trains when the floodlights are off. +6 vision, −4 stamina.", "delta": { "vision": 6, "stamina": -4 } },
+    { "id": "static-charge", "name": "Static Charge", "icon": "ϟ", "description": "The ball sticks to them. +8 first touch, −4 aerial.", "delta": { "firstTouch": 8, "aerial": -4 } },
+    { "id": "frostbitten", "name": "Frostbitten", "icon": "❄", "description": "Spent too long in the Cold Room. −6 pace.", "delta": { "pace": -6 } },
+    { "id": "echoed", "name": "Echoed", "icon": "◎", "description": "Came back from the Sub-Levels. +5 to everything that matters.", "delta": { "finishing": 5, "passing": 5, "tackling": 5, "pace": 5, "composure": 5 }, "returnedOnly": true },
+    { "id": "hollow-eyed", "name": "Hollow-Eyed", "icon": "○", "description": "Came back from the Sub-Levels. +10 finishing, −8 composure.", "delta": { "finishing": 10, "composure": -8 }, "returnedOnly": true }
+  ],
+  "events": [
+    { "id": "mod-glass-boots", "weight": 3, "minChaos": "calm", "mod": "glass-boots", "durationDays": [3, 8], "text": "{player} has been issued new boots by the facility. They are made of something clear." },
+    { "id": "mod-running-hot", "weight": 3, "minChaos": "calm", "mod": "running-hot", "durationDays": [3, 7], "text": "{player} hasn't slept since the scrimmage. They say they feel incredible." },
+    { "id": "mod-night-shift", "weight": 2, "minChaos": "normal", "mod": "night-shift", "durationDays": [4, 9], "text": "Dorm cameras show {player} training alone at 3 a.m. Again." },
+    { "id": "mod-static", "weight": 2, "minChaos": "normal", "mod": "static-charge", "durationDays": [3, 6], "text": "{player} touched an arena wall during a storm drill. The ball now follows them." },
+    { "id": "mod-frost", "weight": 2, "minChaos": "calm", "mod": "frostbitten", "durationDays": [2, 5], "text": "{player} was locked in the Cold Room overnight. \"Administrative error,\" says the Director." },
+    { "id": "mod-magnetized", "weight": 1, "minChaos": "weird", "mod": "magnetized", "durationDays": [5, 10], "text": "{player} keeps getting stuck to the steel walls. Opponents are getting stuck to {player}." },
+    { "id": "mod-cursed", "weight": 1, "minChaos": "weird", "mod": "cursed", "durationDays": [4, 8], "text": "{player} opened a door marked DO NOT OPEN. Every first touch since has gone wrong." },
+    { "id": "mod-blessed", "weight": 1, "minChaos": "normal", "mod": "blessed", "durationDays": [4, 8], "text": "{player} found a note under their pillow: YOU ARE DOING WELL. Their game has never been better." }
+  ],
+  "facilityEvents": [
+    { "id": "lights-out", "name": "Lights Out", "minChaos": "calm", "weight": 3, "delta": { "passing": -8, "vision": -8 }, "text": "Director: Lights Out in effect. Five minutes. Good luck." },
+    { "id": "ball-swap", "name": "Ball Swap", "minChaos": "calm", "weight": 3, "delta": { "firstTouch": -6, "finishing": 4 }, "text": "Director: A heavier ball has been introduced. Adjust accordingly." },
+    { "id": "sealed-door", "name": "Sealed Door", "minChaos": "normal", "weight": 2, "sealOne": true, "text": "Director: One arena door failed to open this morning. {player} will watch from the corridor." },
+    { "id": "wall-shift", "name": "Wall Shift", "minChaos": "normal", "weight": 2, "delta": { "positioning": -6, "finishing": 3 }, "text": "Director: A wall panel has moved inward. The arena is smaller. Please continue." },
+    { "id": "the-drill", "name": "The Drill", "minChaos": "calm", "weight": 2, "drillOne": { "finishing": 6, "passing": 6, "pace": 6 }, "text": "Director: A surprise skill test was held before kickoff. {team} won it." },
+    { "id": "fog", "name": "Weather Simulation: Fog", "minChaos": "calm", "weight": 2, "delta": { "vision": -10, "aerial": -6 }, "text": "Director: Weather Simulation active. Fog. Visibility is not our concern." },
+    { "id": "wind-tunnel", "name": "Weather Simulation: Wind Tunnel", "minChaos": "normal", "weight": 2, "delta": { "aerial": -10, "passing": -4 }, "favors": "longBallSiege", "text": "Director: Wind Tunnel engaged. Long balls are now a matter of faith." },
+    { "id": "heat-chamber", "name": "Weather Simulation: Heat Chamber", "minChaos": "weird", "weight": 1, "delta": { "stamina": -12, "pace": -4 }, "text": "Director: Heat Chamber active. Hydration is permitted." },
+    { "id": "artificial-rain", "name": "Weather Simulation: Rain", "minChaos": "normal", "weight": 2, "delta": { "firstTouch": -6, "dribbling": -4 }, "text": "Director: Artificial rain scheduled for the duration of the match." }
+  ]
+}

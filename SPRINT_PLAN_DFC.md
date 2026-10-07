@@ -63,12 +63,12 @@ Walls (`wallPass`, `wallShot`, scrambles), signature moves (accumulated fouls, S
 - [x] Each arena moves its target stat in the expected direction over 500 matches.
 - [x] ≤3 Awakenings per season over 20 seeds.
 
-## S5 — Soccer world & content — ⬜
+## S5 — Soccer world & content — ✅
 Universe runs soccer seasons end to end (league/schedule/results/stats through the soccer engine). Names, arenas, weird-pack retheme, Vanished / Sub-Level Archive, Director events, ~150 templates.
 
 **DoD**
-- [ ] A full soccer season at each chaos level runs with no exceptions.
-- [ ] Vanish counts per season within ±50% of config over 20 seeds.
+- [x] A full soccer season at each chaos level runs with no exceptions.
+- [x] Vanish counts per season within ±50% of config over 20 seeds.
 
 ## S6 — Club fan-base voting — ⬜
 `favoriteClubId`, fan size, `benefit()`, proposals with `favors/hurts`, sabotage/boost/ejection proposals, coalition lean.
@@ -159,3 +159,15 @@ Winner-assumption checklist (from grep) and what happened to each:
 - Stamina drain slowed (players were being subbed ~12× per team per match); Cold Room now clearly raises subs.
 - `generateSchedule`/`computeStandings` accept any `{ id }[]` (sport-agnostic).
 - `tests/soccer.walls.test.ts` (8 tests). 271 tests pass, lint + typecheck clean. **S4c done.**
+
+### S5 — 2026-10-07
+**Architecture decision.** The Blastball world (`world/universe.ts`, 1,481 lines, plus weird/persona/picks/leaders/careers) is wired to baseball ratings and stat lines throughout. Rather than thread `if (sport)` through all of it (and risk the byte-identical baseball guarantee), soccer gets its own world module that reuses the sport-neutral shell: RNG, `season.ts` (schedule, W/D/L standings), `odds.ts` (multipliers), `factions.ts`, election vote pricing (S6), storage and worker (S7 adds a sport switch). Old baseball saves keep the old world untouched.
+- `src/world/soccer/universe.ts`: event-sourced `SoccerUniverse` (`reduceSoccer`, `runSoccerCommand`, `reduceAllSoccer`), double round-robin league phase, top-4 knockout (shootouts, no draws), champion, **Ejection** of the bottom club and a new club from outside, new seasons, injuries (miss N club matches), stats, 3-way **Predictions** with draw settlement, favourite-club win bonus, stipend, **club switching** (once per season, costs all coins, `clubHistory`), Director news lines.
+- `src/world/soccer/weird.ts` + `content/soccer/weird/core.json` (original): player mods with soccer deltas, **Vanished → Sub-Level Archive** with replacement arrivals, **Director facility events** per match (Lights Out, Ball Swap, Sealed Door, Wall Shift, The Drill, Fog / Wind Tunnel / Heat / Rain).
+- Engine options for the world: `teamDeltas`, `playerDeltas`, `facilityEvents` (logged at kickoff).
+- `src/world/soccer/odds.ts`: 3-way odds from public star groups + form; closer matches draw more.
+- `content/soccer/templates.json` (**~200 original templates**) + `src/narrative/soccer.ts` (seeded, replay-stable lines; Key Moments flag; tones for the play log).
+- `computeStandings` skips results for clubs that have since been Ejected.
+- Vitest `testTimeout` raised to 30 s: the pre-existing baseball death-rate test passes alone in ~5 s but hit the 5 s default once the soccer season suites ran in parallel. No assertion changed.
+- Not yet: Living-time mode and personas for soccer (S7), elections (S6), Echo Goal event (S8).
+- `tests/soccer.world.test.ts` (16 tests). 287 tests pass, lint + typecheck clean. **S5 done.**

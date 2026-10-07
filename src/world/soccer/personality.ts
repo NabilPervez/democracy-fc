@@ -12,20 +12,34 @@ export const AWAKENINGS_PER_SEASON = 3;
 
 const bump = (m: Record<string, number> | undefined, id: string) => ({ ...(m ?? {}), [id]: (m?.[id] ?? 0) + 1 });
 
-/** Assists between teammates build Bonds; fouls and won duels between opponents build Rivalries. */
-export function applyRelations(league: SoccerLeague, r: SoccerResult): SoccerLeague {
+export interface RelationPairs {
+  bonds: [string, string][];
+  rivals: [string, string][];
+}
+
+/** Assists between teammates build Bonds; fouls between opponents build Rivalries. */
+export function relationPairs(r: SoccerResult): RelationPairs {
+  const out: RelationPairs = { bonds: [], rivals: [] };
+  for (const e of r.events) {
+    if (e.kind === 'goal' && e.assistId) out.bonds.push([e.scorerId, e.assistId]);
+    if (e.kind === 'tackle') out.rivals.push([e.defenderId, e.victimId]);
+  }
+  return out;
+}
+
+export function applyRelationPairs(league: SoccerLeague, pairs: RelationPairs): SoccerLeague {
   const players = { ...league.players };
   const touch = (a: string, b: string, key: 'bonds' | 'rivals') => {
     if (!players[a] || !players[b] || a === b) return;
     players[a] = { ...players[a], [key]: bump(players[a][key], b) };
     players[b] = { ...players[b], [key]: bump(players[b][key], a) };
   };
-  for (const e of r.events) {
-    if (e.kind === 'goal' && e.assistId) touch(e.scorerId, e.assistId, 'bonds');
-    if (e.kind === 'tackle') touch(e.defenderId, e.victimId, 'rivals');
-  }
+  for (const [a, b] of pairs.bonds) touch(a, b, 'bonds');
+  for (const [a, b] of pairs.rivals) touch(a, b, 'rivals');
   return { ...league, players };
 }
+
+export const applyRelations = (league: SoccerLeague, r: SoccerResult) => applyRelationPairs(league, relationPairs(r));
 
 /** How Drives evolve when a player Awakens. */
 const EVOLVE: Partial<Record<Drive, Drive>> = { spark: 'ice', selfish: 'predator', showboat: 'conductor' };

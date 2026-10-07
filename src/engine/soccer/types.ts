@@ -125,6 +125,8 @@ export type SoccerEvent = SEventBase & (
   | { kind: 'signature'; playerId: string; signatureId: string }
   | { kind: 'awakening'; playerId: string; teamId: string }
   | { kind: 'arenaShift'; arenaId: string }
+  // S5: Director facility events and the world's rating changes.
+  | { kind: 'facilityEvent'; eventId: string; text: string }
   | { kind: 'halfTime' }
   | { kind: 'fullTime'; winnerId: string | null }
 );

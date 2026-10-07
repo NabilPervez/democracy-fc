@@ -67,8 +67,10 @@ export function computeStandings(teams: readonly { id: string }[], results: Scor
     teams.map((t) => [t.id, { teamId: t.id, wins: 0, draws: 0, losses: 0, points: 0, runsFor: 0, runsAgainst: 0 }]),
   );
   for (const r of results) {
-    const away = rows.get(r.awayId)!;
-    const home = rows.get(r.homeId)!;
+    const away = rows.get(r.awayId);
+    const home = rows.get(r.homeId);
+    // A club that has since left the league (Ejection) no longer has a row.
+    if (!away || !home) continue;
     away.runsFor += r.awayScore;
     away.runsAgainst += r.homeScore;
     home.runsFor += r.homeScore;

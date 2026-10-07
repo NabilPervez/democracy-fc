@@ -84,5 +84,6 @@ export default defineConfig({
     }),
   ],
   worker: { format: 'es' },
-  test: { include: ['tests/**/*.test.ts'] },
+  // Season-length simulation tests (baseball and soccer) run in parallel; 5s is too tight under load.
+  test: { include: ['tests/**/*.test.ts'], testTimeout: 30_000 },
 });
