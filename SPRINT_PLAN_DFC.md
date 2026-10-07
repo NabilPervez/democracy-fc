@@ -32,13 +32,13 @@ W/D/L standings, points, `winnerId: null`, prediction settlement for draws, dige
 - [x] A stub soccer engine returning fixed draws flows through standings, predictions and digest without errors (`tests/draws.test.ts`).
 - [x] 3-way odds market (`home / draw / away`) in `odds.ts`; 2-way kept for baseball.
 
-## S3 — Soccer engine v1 — ⬜
+## S3 — Soccer engine v1 — ✅
 Types, generator (8-player squads, drives, styles), possession chains on the 3×3 grid, shots, goals, halves, auto lineup.
 
 **DoD**
-- [ ] `tests/soccer.calibration.test.ts` passes §B5 targets over 1,000 seeded matches.
-- [ ] Property test: same seed ⇒ identical events (`tests/soccer.determinism.test.ts`).
-- [ ] No `Math.random`; `engine/soccer` has zero UI/storage imports.
+- [x] `tests/soccer.calibration.test.ts` passes §B5 targets over 1,000 seeded matches.
+- [x] Property test: same seed ⇒ identical events (`tests/soccer.determinism.test.ts`).
+- [x] No `Math.random`; `engine/soccer` has zero UI/storage imports.
 
 ## S4 — Set pieces, cards, injuries, momentum, shootouts — ⬜
 **DoD**
@@ -64,7 +64,7 @@ Walls (`wallPass`, `wallShot`, scrambles), accumulated fouls + Spot Kicks + powe
 - [ ] ≤3 Awakenings per season over 20 seeds.
 
 ## S5 — Soccer world & content — ⬜
-Names, arenas, weird-pack retheme, Vanished / Sub-Level Archive, Director events, ~150 templates.
+Universe runs soccer seasons end to end (league/schedule/results/stats through the soccer engine). Names, arenas, weird-pack retheme, Vanished / Sub-Level Archive, Director events, ~150 templates.
 
 **DoD**
 - [ ] A full soccer season at each chaos level runs with no exceptions.
@@ -129,3 +129,11 @@ Winner-assumption checklist (from grep) and what happened to each:
 | UI tables (`League.tsx`, `Today.tsx`, `BetPanel.tsx`) | Deferred to S7 UI conversion (D column, Draw button). |
 - `UniverseSettings.sport` (optional, defaults to baseball for now).
 - 241 tests pass, lint + typecheck clean, baseball fingerprints unchanged. **S2 done.**
+
+### S3 — 2026-10-07
+- New `src/engine/soccer/`: `types.ts` (§C3), `lineup.ts` (auto five K/A/W/W/P by slot fit, backup keeper), `game.ts` (possession chains on zones × lanes, pass / dribble / long ball / shot, rebounds off the walls, rolling subs on stamina, Spark swing, Ice late composure, Selfish/Conductor/Predator/Wall/Showboat action + quality effects, home bonus, stoppage), `boxScore.ts`, `calibrate.ts`, `sport.ts` (registered as `soccer`, star groups incl. Keeping for keepers only).
+- New `src/world/soccer/generate.ts` + `content/soccer/names.json` (original names only): 8-player squads, positions, drives, styles, fan size, default 12 clubs.
+- Calibration (seed `calibration`, 1,000 matches): goals 5.9, draws 15.7%, home wins 48.5%, 0–0 0.2%, 21 shots/team, 105 chains — all in band. Extra check over 3 other league seeds (goals 6.5–7.4) because league make-up shifts scoring.
+- Phases are a first-pass label from zone (`buildUp/progression/creation` vs blocks, transitions on turnovers, set pieces on restarts); S4b replaces this with the real Phase Engine.
+- Not yet wired into `universe.ts` (the world layer is still baseball-typed) — that is the first task of S5.
+- 250 tests pass, lint + typecheck clean. **S3 done.**

@@ -1,9 +1,10 @@
 import { baseballEngine } from '../baseball/sport';
+import { soccerEngine } from '../soccer/sport';
 import type { AnySportEngine, SportId } from './sport';
 
 const ENGINES: Record<SportId, AnySportEngine | undefined> = {
   baseball: baseballEngine,
-  soccer: undefined, // registered in Sprint 3
+  soccer: soccerEngine,
 };
 
 export function getSport(id: SportId): AnySportEngine {
