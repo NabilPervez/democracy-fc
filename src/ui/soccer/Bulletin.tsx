@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { formatMult } from '../../engine/odds';
+import { formatMult, multiplierFor } from '../../engine/odds';
 import { getTactic } from '../../engine/soccer/tactics';
 import { ballotVoteCost } from '../../world/soccer/matchday';
 import {
-  ballotError, betError, clubOf, currentElection, DRAW_PICK, fixturesOn, matchBallot, matchOdds, regularDays, soccerStandings, unplayedToday,
-  type SoccerUniverse,
+  ballotError, betError, clubOf, currentElection, DRAW_PICK, fixturesOn, matchBallot, matchOdds, predictionLabel, regularDays, sideOdds,
+  sidePredictionError, soccerStandings, TOTAL_LINE, unplayedToday, type SideMarket, type SoccerUniverse,
 } from '../../world/soccer/universe';
 import { Crest, DRIVE_INFO, POSITION_LABEL } from './bits';
 import { useAssembly } from './store';
@@ -212,6 +212,20 @@ function Prediction({ gameId }: { gameId: string }) {
   const home = clubOf(u, game.homeId)!;
   const away = clubOf(u, game.awayId)!;
   const existing = u.bets.filter((b) => b.gameId === gameId && b.season === u.season);
+  const side = sideOdds(u, gameId);
+  const [scorer, setScorer] = useState('');
+  const sideButton = (market: SideMarket, pick: string, label: string, pm: number) => {
+    const err = sidePredictionError(u, gameId, market, pick, stake);
+    return (
+      <button key={market + pick} className="btn" disabled={!!err} title={err ?? undefined} onClick={() => void dispatch({ type: 'sidePrediction', gameId, market, pick, amount: stake })}>
+        <strong>{label}</strong>
+        <span className="mult">
+          {Math.round(pm / 10)}% · {formatMult(multiplierFor(pm))}
+        </span>
+      </button>
+    );
+  };
+  const scorers = Object.entries(side.firstScorer).sort((a, b) => b[1] - a[1]);
   const options = [
     { id: game.homeId, label: home.name, mult: odds.homeMult, pm: odds.homePm },
     { id: DRAW_PICK, label: 'Draw', mult: odds.drawMult, pm: odds.drawPm },
@@ -222,7 +236,7 @@ function Prediction({ gameId }: { gameId: string }) {
       <h3>3 · Prediction</h3>
       <p className="muted small" style={{ margin: '0 0 6px' }}>
         Coins are earned, never bought.{' '}
-        {existing.length ? `You predicted ${existing.map((b) => `${b.teamId === DRAW_PICK ? 'a draw' : clubOf(u, b.teamId)?.name} (${b.amount}◈)`).join(', ')}.` : ''}
+        {existing.length ? `You predicted: ${existing.map((b) => `${b.teamId === DRAW_PICK ? 'a draw' : predictionLabel(u, b)} (${b.amount}◈)`).join(', ')}.` : ''}
       </p>
       <label className="small muted" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         Stake
@@ -242,6 +256,31 @@ function Prediction({ gameId }: { gameId: string }) {
           );
         })}
       </div>
+      <details style={{ marginTop: 10 }}>
+        <summary className="small">More predictions</summary>
+        <p className="small muted" style={{ margin: '8px 0 4px' }}>Both teams score?</p>
+        <div className="predict-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {sideButton('btts', 'yes', 'Yes', side.btts.yes)}
+          {sideButton('btts', 'no', 'No', side.btts.no)}
+        </div>
+        <p className="small muted" style={{ margin: '8px 0 4px' }}>Total goals ({TOTAL_LINE})</p>
+        <div className="predict-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {sideButton('total', 'over', 'Over', side.total.over)}
+          {sideButton('total', 'under', 'Under', side.total.under)}
+        </div>
+        <p className="small muted" style={{ margin: '8px 0 4px' }}>First scorer</p>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <select value={scorer} onChange={(e) => setScorer(e.target.value)} aria-label="First scorer" style={{ flex: 1, minHeight: 44, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)' }}>
+            <option value="">Pick a player…</option>
+            {scorers.map(([id, pm]) => (
+              <option key={id} value={id}>
+                {u.league.players[id]?.name} · {formatMult(multiplierFor(pm))}
+              </option>
+            ))}
+          </select>
+          {scorer && sideButton('firstScorer', scorer, 'Predict', side.firstScorer[scorer])}
+        </div>
+      </details>
     </div>
   );
 }

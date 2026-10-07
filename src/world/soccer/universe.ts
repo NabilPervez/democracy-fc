@@ -9,7 +9,10 @@ import { soccerOdds, type SoccerRecord } from './odds';
 import { applyRelationPairs, awaken, AWAKENINGS_PER_SEASON, relationPairs, type RelationPairs } from './personality';
 import { facilityEventsFor, modDeltas, rollSoccerDay, type ActiveMod, type Chaos, type SoccerHappening } from './weird';
 import names from '../../../content/soccer/names.json';
+import headlines from '../../../content/soccer/headlines.json';
 import { ARENAS } from '../../engine/soccer/arenas';
+import { multiplierFor } from '../../engine/odds';
+import { selectLineup } from '../../engine/soccer/lineup';
 import { FACILITY_EVENTS } from './weird';
 import {
   averageStars, benefit, clubBudget, clubSplit, clubView, ELECTION_DAYS, electionTotals, electionWinner, factionSplitSoccer,
@@ -67,6 +70,8 @@ export interface SoccerMatchSummary {
   homePossession?: number;
   /** Clubs whose captain was sent off or missed a penalty (Captain's Burden). */
   burden?: string[];
+  /** First goal of the match (first-scorer predictions). */
+  firstScorerId?: string;
   arenaId: string;
 }
 
@@ -74,8 +79,10 @@ export interface SoccerBet {
   id: string;
   gameId: string;
   day: number;
-  /** A club id, or DRAW_PICK. */
+  /** Result market: a club id or DRAW_PICK. Side markets: 'yes' | 'no' | 'over' | 'under' | a player id. */
   teamId: string;
+  /** Missing = the 3-way result market (MVP 1). Side markets arrived in S8 (§B8). */
+  market?: SideMarket;
   amount: number;
   multMilli: number;
   pm: number;
@@ -83,6 +90,10 @@ export interface SoccerBet {
   payout: number;
   season: number;
 }
+
+export type SideMarket = 'btts' | 'total' | 'firstScorer';
+/** Goals line for over/under. The PRD's 2.5 is an 11-a-side number; 5v5 averages ~6 goals, so the line is 5.5. */
+export const TOTAL_LINE = 5.5;
 
 export interface VanishedPlayer {
   player: SoccerPlayer;
@@ -189,6 +200,7 @@ export type SoccerWorldEvent =
   | { type: 'matchPlayed'; summary: SoccerMatchSummary; box: Record<string, SoccerStatLine>; injuries: Record<string, number>; awakenings: string[]; relations: RelationPairs }
   | { type: 'happening'; happening: SoccerHappening }
   | { type: 'betPlaced'; gameId: string; teamId: string; amount: number }
+  | { type: 'sidePrediction'; gameId: string; market: SideMarket; pick: string; amount: number }
   | { type: 'clubSwitched'; clubId: string }
   | { type: 'votesBought'; electionId: number; proposal: number; count: number }
   | { type: 'ballotVote'; gameId: string; question: BallotQuestion; option: number; count: number }
@@ -362,7 +374,7 @@ export function matchInputs(s: SoccerUniverse, game: SoccerFixture): { opts: Soc
     teamDeltas[key] = cur;
   };
   const events = [...facility.events];
-  const matchRules: MatchRules = {};
+  const matchRules: MatchRules = facility.echoGoal ? { echoFirstGoal: true } : {};
   let arenaId: string | undefined;
   for (const r of rules) {
     const e = r.effect;
@@ -421,8 +433,71 @@ export function betError(s: SoccerUniverse, gameId: string, teamId: string, amou
   if (isKnockout(s, gameId) && teamId === DRAW_PICK) return 'Knockout matches always have a winner.';
   if (!Number.isInteger(amount) || amount < 1) return 'Stake at least 1 coin.';
   if (amount > s.coins) return 'Not enough coins.';
-  if (s.bets.some((b) => b.season === s.season && b.gameId === gameId && b.teamId !== teamId)) return 'You already made a different prediction for this match.';
+  if (s.bets.some((b) => b.season === s.season && b.gameId === gameId && !b.market && b.teamId !== teamId)) return 'You already made a different prediction for this match.';
   return null;
+}
+
+/** Side markets (§B8, MVP 2): public, integer odds. */
+export interface SideOdds {
+  btts: { yes: number; no: number };
+  total: { over: number; under: number };
+  /** Player id → per-mille chance of scoring first. */
+  firstScorer: Record<string, number>;
+}
+
+const SCORER_SHARE: Record<SoccerPlayer['position'], number> = { P: 36, W: 25, A: 12, K: 2 };
+
+export function sideOdds(s: SoccerUniverse, gameId: string): SideOdds {
+  const game = s.schedule.find((g) => g.id === gameId)!;
+  const result = matchOdds(s, gameId);
+  const table = soccerStandings(s);
+  const rate = (id: string) => {
+    const r = table.find((x) => x.teamId === id);
+    const played = r ? r.wins + r.draws + r.losses : 0;
+    // Goals per match ×100, shrunk toward the league norm (620) until a club has played a few.
+    const goals = r ? r.runsFor + r.runsAgainst : 0;
+    return Math.trunc((goals * 100 + 620 * 4) / (played + 4));
+  };
+  const expected = Math.trunc((rate(game.homeId) + rate(game.awayId)) / 2); // ×100
+  const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
+  const over = clamp(560 + Math.trunc((expected - 620) / 2), 250, 850);
+  const yes = clamp(880 + Math.trunc((expected - 620) / 6), 700, 960);
+  const firstScorer: Record<string, number> = {};
+  const out = unavailable(s);
+  for (const [teamId, teamPm] of [[game.homeId, result.homePm + Math.trunc(result.drawPm / 2)], [game.awayId, result.awayPm + Math.trunc(result.drawPm / 2)]] as const) {
+    const team = clubOf(s, teamId)!;
+    const five = selectLineup(team, s.league, out);
+    const weights = five.map((id) => SCORER_SHARE[s.league.players[id].position] * (50 + s.league.players[id].ratings.finishing));
+    const total = weights.reduce((a, b) => a + b, 0) || 1;
+    five.forEach((id, i) => (firstScorer[id] = Math.max(5, Math.trunc((teamPm * weights[i]) / total))));
+  }
+  return { btts: { yes, no: 1000 - yes }, total: { over, under: 1000 - over }, firstScorer };
+}
+
+export function sidePm(s: SoccerUniverse, gameId: string, market: SideMarket, pick: string): number | null {
+  const o = sideOdds(s, gameId);
+  if (market === 'btts') return pick === 'yes' ? o.btts.yes : pick === 'no' ? o.btts.no : null;
+  if (market === 'total') return pick === 'over' ? o.total.over : pick === 'under' ? o.total.under : null;
+  return o.firstScorer[pick] ?? null;
+}
+
+export function sidePredictionError(s: SoccerUniverse, gameId: string, market: SideMarket, pick: string, amount: number): string | null {
+  const game = s.schedule.find((g) => g.id === gameId);
+  if (!game) return 'No such match.';
+  if (game.day !== s.currentDay) return "You can only make predictions on today's matches.";
+  if (s.results[gameId] || s.started.includes(gameId)) return 'Predictions are closed: this match has kicked off.';
+  if (sidePm(s, gameId, market, pick) === null) return 'That pick is not on offer.';
+  if (!Number.isInteger(amount) || amount < 1) return 'Stake at least 1 coin.';
+  if (amount > s.coins) return 'Not enough coins.';
+  if (s.bets.some((b) => b.season === s.season && b.gameId === gameId && b.market === market && b.teamId !== pick)) return 'You already made a different prediction in this market.';
+  return null;
+}
+
+export function predictionLabel(s: SoccerUniverse, b: Pick<SoccerBet, 'market' | 'teamId'>): string {
+  if (!b.market) return clubName(s, b.teamId);
+  if (b.market === 'btts') return `both teams score: ${b.teamId}`;
+  if (b.market === 'total') return `${b.teamId} ${TOTAL_LINE} goals`;
+  return `${s.league.players[b.teamId]?.name ?? 'a player'} scores first`;
 }
 
 /** §B2: switch supported club at most once per season; it costs every coin. */
@@ -451,11 +526,18 @@ function settleBets(s: SoccerUniverse, summary: SoccerMatchSummary): SoccerUnive
   if (!s.bets.some((b) => b.gameId === summary.gameId && b.status === 'open')) return s;
   const winner = summary.shootout?.winnerId ?? matchWinner(summary) ?? DRAW_PICK;
   let next = s;
+  const goals = summary.homeScore + summary.awayScore - (summary.bonusPoints ?? 0);
+  const sideWinner: Record<SideMarket, string | undefined> = {
+    btts: summary.homeScore > 0 && summary.awayScore > 0 ? 'yes' : 'no',
+    total: goals > TOTAL_LINE ? 'over' : 'under',
+    firstScorer: summary.firstScorerId,
+  };
   const bets = s.bets.map((b): SoccerBet => {
     if (b.gameId !== summary.gameId || b.status !== 'open') return b;
-    if (b.teamId !== winner) return { ...b, status: 'lost', payout: 0 };
+    const right = b.market ? sideWinner[b.market] === b.teamId : b.teamId === winner;
+    if (!right) return { ...b, status: 'lost', payout: 0 };
     const payout = Math.floor((b.amount * b.multMilli) / 1000);
-    next = { ...next, coins: next.coins + payout, ledger: withLedger(next, payout, `Prediction right: ${clubName(s, b.teamId)}`) };
+    next = { ...next, coins: next.coins + payout, ledger: withLedger(next, payout, `Prediction right: ${predictionLabel(s, b)}`) };
     return { ...b, status: 'won', payout };
   });
   return { ...next, bets };
@@ -555,11 +637,23 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
       const odds = matchOdds(state, gameId);
       const game = state.schedule.find((g) => g.id === gameId)!;
       const [pm, mult] = teamId === DRAW_PICK ? [odds.drawPm, odds.drawMult] : teamId === game.homeId ? [odds.homePm, odds.homeMult] : [odds.awayPm, odds.awayMult];
-      const existing = state.bets.find((b) => b.season === state.season && b.gameId === gameId && b.teamId === teamId);
+      const existing = state.bets.find((b) => b.season === state.season && b.gameId === gameId && !b.market && b.teamId === teamId);
       const bets = existing
         ? state.bets.map((b) => (b === existing ? { ...b, amount: b.amount + amount, multMilli: Math.floor((b.amount * b.multMilli + amount * mult) / (b.amount + amount)) } : b))
         : [...state.bets, { id: `${state.season}-${gameId}-${teamId}`, gameId, day: state.currentDay, teamId, amount, multMilli: mult, pm, status: 'open' as const, payout: 0, season: state.season }];
       return { ...state, coins: state.coins - amount, bets, ledger: withLedger(state, -amount, `Prediction: ${clubName(state, teamId)}`) };
+    }
+
+    case 'sidePrediction': {
+      const { gameId, market, pick, amount } = event;
+      if (sidePredictionError(state, gameId, market, pick, amount)) return state;
+      const pm = sidePm(state, gameId, market, pick)!;
+      const mult = multiplierFor(pm);
+      const existing = state.bets.find((b) => b.season === state.season && b.gameId === gameId && b.market === market && b.teamId === pick);
+      const bets = existing
+        ? state.bets.map((b) => (b === existing ? { ...b, amount: b.amount + amount, multMilli: Math.floor((b.amount * b.multMilli + amount * mult) / (b.amount + amount)) } : b))
+        : [...state.bets, { id: `${state.season}-${gameId}-${market}-${pick}`, gameId, day: state.currentDay, teamId: pick, market, amount, multMilli: mult, pm, status: 'open' as const, payout: 0, season: state.season }];
+      return { ...state, coins: state.coins - amount, bets, ledger: withLedger(state, -amount, `Prediction: ${predictionLabel(state, { market, teamId: pick })}`) };
     }
 
     case 'clubSwitched': {
@@ -710,7 +804,9 @@ export function withNewElection(s: SoccerUniverse, openedDay: number): SoccerUni
     id, season: s.season, openedDay, closesDay: openedDay + ELECTION_DAYS - 1, proposals, clubVotes, factionVotes,
     playerVotes: proposals.map(() => 0), coinsSpent: 0, result: null,
   };
-  return { ...s, elections: [...s.elections, election] };
+  const opened = { ...s, elections: [...s.elections, election] };
+  const line = coalitionHeadline(opened, election);
+  return line ? { ...opened, news: withNews(opened, [line], openedDay) } : opened;
 }
 
 function resolveElection(s: SoccerUniverse, e: SoccerElection): SoccerUniverse {
@@ -720,7 +816,12 @@ function resolveElection(s: SoccerUniverse, e: SoccerElection): SoccerUniverse {
   const elections = s.elections.map((x) => (x.id === e.id ? { ...x, result: { winner, totals } } : x));
   const pct = Math.round((totals[winner] * 100) / Math.max(1, totals.reduce((a, b) => a + b, 0)));
   const text = `The fans have spoken: ${p.title.toUpperCase()} (${pct}%).`;
-  let next: SoccerUniverse = { ...s, elections, news: withNews(s, [{ text: `Director: ${text}`, director: true }]), timeline: withTimeline(s, 'election', text) };
+  let next: SoccerUniverse = {
+    ...s,
+    elections,
+    news: withNews(s, [{ text: `Director: ${text}`, director: true }, ...fanHeadlines(s, e, winner, pct)]),
+    timeline: withTimeline(s, 'election', text),
+  };
   const fx = p.effect;
   const days = p.duration?.days ?? 14;
   switch (fx.kind) {
@@ -743,6 +844,46 @@ function resolveElection(s: SoccerUniverse, e: SoccerElection): SoccerUniverse {
       break;
   }
   return next;
+}
+
+/** Fan-base reactions (§B9): the club most helped and the club most hurt by the winning rule react in the feed. */
+function fanHeadlines(s: SoccerUniverse, e: SoccerElection, winner: number, pct: number): string[] {
+  const p = e.proposals[winner];
+  const rng = createRng(s.settings.seed, 'headlines', e.id);
+  const fill = (t: string, v: Record<string, string | number>) => t.replace(/\{(\w+)\}/g, (_, k: string) => String(v[k] ?? ''));
+  if (p.effect.kind === 'statusQuo') return [rng.pick(headlines.statusQuo)];
+  const standings = soccerStandings(s);
+  const views = s.league.teams.map((t) => clubView(s.league, t, standings));
+  const avg = averageStars(views);
+  const scored = views.map((v) => ({ v, b: benefit(v, p, avg) })).sort((a, b) => a.b - b.b || a.v.team.id.localeCompare(b.v.team.id));
+  const vars = { rule: p.title, pct, rest: 100 - pct };
+  const out: string[] = [];
+  const worst = scored[0];
+  const best = scored[scored.length - 1];
+  if (worst.b < 0) out.push(fill(rng.pick(headlines.furious), { ...vars, club: worst.v.team.name }));
+  if (best.b > 0) out.push(fill(rng.pick(headlines.delighted), { ...vars, club: best.v.team.name }));
+  return out;
+}
+
+/** Coalition headline when a ballot opens: who is lining up behind the front-runner. */
+function coalitionHeadline(s: SoccerUniverse, e: SoccerElection): string | null {
+  const totals = electionTotals(e);
+  const top = electionWinner(totals);
+  const p = e.proposals[top];
+  if (p.effect.kind === 'statusQuo') return null;
+  const clubs = Object.entries(e.clubVotes).filter(([, v]) => v.indexOf(Math.max(...v)) === top).map(([id]) => clubOf(s, id)?.name).filter(Boolean) as string[];
+  if (clubs.length < 2) return null;
+  const faction = Object.entries(e.factionVotes).find(([, v]) => v.indexOf(Math.max(...v)) === top)?.[0];
+  const rng = createRng(s.settings.seed, 'coalition', e.id);
+  const fname = s.factions.find((f) => f.id === faction)?.name;
+  const pool = fname ? headlines.coalition : headlines.coalition.slice(1);
+  const vars: Record<string, string> = {
+    count: String(clubs.length),
+    faction: fname ?? '',
+    rule: p.title,
+    clubs: clubs.slice(0, 3).join(', ') + (clubs.length > 3 ? ` and ${clubs.length - 3} more` : ''),
+  };
+  return rng.pick(pool).replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? '');
 }
 
 /** Return only by election (§B6): back from the Sub-Levels, changed — a new mod and a new Drive. */
@@ -912,6 +1053,7 @@ export function runSoccerCommand(start: SoccerUniverse, cmd: SoccerCommand): Soc
     if (state.results[game.id]) return;
     const { opts, facility } = matchInputs(state, game);
     const r = simulateSoccer(state.league, game, state.season, opts);
+    const firstGoal = r.events.find((e) => e.kind === 'goal');
     apply({
       type: 'matchPlayed',
       summary: {
@@ -920,6 +1062,7 @@ export function runSoccerCommand(start: SoccerUniverse, cmd: SoccerCommand): Soc
         bonusPoints: r.events.reduce((n, e) => n + (e.kind === 'goal' && e.value ? e.value - 1 : 0), 0) || undefined,
         ballot: Object.fromEntries([game.homeId, game.awayId].map((id) => [id, resolveMatchBallot(state, game.id, id)])),
         homePossession: possessionPct(r),
+        firstScorerId: firstGoal?.kind === 'goal' ? firstGoal.scorerId : undefined,
         burden: burdenOf(r, opts.matchday ?? {}),
       },
       box: soccerBoxScore(r),

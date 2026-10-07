@@ -162,3 +162,46 @@ describe('soccer narrative (S5)', () => {
     expect(b).toEqual(a);
   });
 });
+
+describe('side prediction markets (S8)', () => {
+  it('both-teams-score, over/under and first scorer settle from the result', async () => {
+    const { sideOdds, TOTAL_LINE } = await import('../src/world/soccer/universe');
+    let u = fresh({ seed: 'markets' });
+    const today = u.schedule.filter((g) => g.day === 1);
+    for (const g of today) {
+      const o = sideOdds(u, g.id);
+      expect(o.btts.yes + o.btts.no).toBe(1000);
+      expect(o.total.over + o.total.under).toBe(1000);
+      const scorer = Object.entries(o.firstScorer).sort((a, b) => b[1] - a[1])[0][0];
+      u = reduceSoccer(u, { type: 'sidePrediction', gameId: g.id, market: 'btts', pick: 'yes', amount: 1 });
+      u = reduceSoccer(u, { type: 'sidePrediction', gameId: g.id, market: 'total', pick: 'over', amount: 1 });
+      u = reduceSoccer(u, { type: 'sidePrediction', gameId: g.id, market: 'firstScorer', pick: scorer, amount: 1 });
+      // A result prediction is still allowed alongside side markets.
+      u = reduceSoccer(u, { type: 'betPlaced', gameId: g.id, teamId: g.homeId, amount: 1 });
+    }
+    expect(u.bets).toHaveLength(today.length * 4);
+    u = runSoccerCommand(u, { type: 'endDay' }).state;
+    for (const g of today) {
+      const r = u.results[g.id];
+      const bet = (m: string) => u.bets.find((b) => b.gameId === g.id && b.market === m)!;
+      expect(bet('btts').status).toBe(r.homeScore > 0 && r.awayScore > 0 ? 'won' : 'lost');
+      expect(bet('total').status).toBe(r.homeScore + r.awayScore - (r.bonusPoints ?? 0) > TOTAL_LINE ? 'won' : 'lost');
+      expect(bet('firstScorer').status).toBe(bet('firstScorer').teamId === r.firstScorerId ? 'won' : 'lost');
+    }
+  });
+});
+
+describe('Echo Goal (S8)', () => {
+  it('the first goal of an Echo Goal match counts twice', async () => {
+    const { simulateSoccer } = await import('../src/engine/soccer/game');
+    const u = fresh({ seed: 'echo' });
+    for (const g of u.schedule.slice(0, 10)) {
+      const r = simulateSoccer(u.league, g, 1, { rules: { echoFirstGoal: true } });
+      const goals = r.events.filter((e) => e.kind === 'goal');
+      if (!goals.length) continue;
+      expect(goals[0].kind === 'goal' && goals[0].value).toBe(2);
+      const points = goals.reduce((n, e) => n + (e.kind === 'goal' ? e.value ?? 1 : 0), 0);
+      expect(r.homeScore + r.awayScore).toBe(points);
+    }
+  });
+});

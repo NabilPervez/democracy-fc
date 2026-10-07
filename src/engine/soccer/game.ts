@@ -254,6 +254,7 @@ function rollingSubs(s: MatchState) {
 /** A goal: score, momentum, and a short-handed conceding side gets its fifth player back. */
 function scoreGoal(s: MatchState, att: Side, def: Side, zone: Zone, scorerId: string, assistId: string | undefined, value = 1) {
   const trailing = (att.home ? s.score.home - s.score.away : s.score.away - s.score.home) < 0;
+  if (s.rules.echoFirstGoal && s.score.home + s.score.away === 0) value *= 2;
   if (att.home) s.score.home += value;
   else s.score.away += value;
   emit(s, att, zone, { kind: 'goal', scorerId, assistId, teamId: att.team.id, value: value > 1 ? value : undefined });
@@ -707,6 +708,8 @@ export interface MatchRules {
   /** Points for a banked goal / a goal from the middle third (default 1). */
   wallGoalValue?: number;
   longRangeGoalValue?: number;
+  /** Echo Goal: the match's first goal counts twice. */
+  echoFirstGoal?: boolean;
 }
 
 /** 5 kicks each, then sudden death; every player on the floor takes one before anyone goes twice. */

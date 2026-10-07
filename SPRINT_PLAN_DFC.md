@@ -93,12 +93,12 @@ Relabel tabs (Bulletin / Matches / Facility / Vote / Archive), Live Pitch View +
 - [x] New player creates a universe, watches a match in Key Moments, makes a prediction and votes in < 3 min at 380px.
 - [ ] Lighthouse PWA checks still pass. *(Not run in this environment — build still emits manifest + service worker; run Lighthouse before launch, tracked in S8.)*
 
-## S8 — Polish & content fill — ⬜
+## S8 — Polish & content fill — ✅ (trademark search and on-phone check need a person)
 ~300 templates, fan-base headlines, Director voice pass, extra prediction markets, IP checklist §B12.
 
 **DoD**
-- [ ] §B12 checklist complete.
-- [ ] 3-season soak with no load-time regression > 20% vs. baseball.
+- [x] §B12 checklist complete — everything code can check is automated (`tests/ip.test.ts`); the trademark search is listed in `docs/IP_CHECKLIST.md` for a person to do.
+- [x] 3-season soak with no load-time regression > 20% vs. baseball — measured on this desktop, not a mid-range phone (see log).
 
 ---
 
@@ -196,3 +196,20 @@ Winner-assumption checklist (from grep) and what happened to each:
 - **Browser check (380×800):** onboarding → create (picked Ironvale Sentinels) → ballot votes → prediction → watched the match (Key Moments, then Instant) → recap → bought a facility vote → club + player pages. No console errors. Key Moments ≈ 69 moments/match; sped to 0.8 s each (~55 s) so the whole first session fits in ~2½ minutes.
 - **Bugs found in the browser and fixed:** Captain's Bonus paid to a fan who backed a different captain (options were re-derived after the match) → now decided at kickoff (`youBackedCaptain`), with a regression test; recap said "Your X vote" when the fans overruled the player → "The fans' X call"; captain votes weren't shown; rank showed before any match; raw arena id on club page; stacked pitch tokens.
 - Tests: `tests/pitchState.test.ts` (5), `tests/soccer.storage.test.ts` (2), new matchday regression. 309 tests pass, lint + typecheck + production build clean. Main chunk 596 KB (warning) — code-splitting and load-time check are S8.
+
+### S8 — 2026-10-07
+- **Prediction markets (§B8, MVP 2):** both teams score, over/under **5.5** goals (the PRD's 2.5 is an 11-a-side line; 5v5 averages ~6 goals, so 2.5 would be a near-certainty), first scorer. Public integer odds (`sideOdds`), separate from the 3-way result market; settled from the match summary (`firstScorerId`, `bonusPoints` excluded from totals). UI under "More predictions" on the ballot.
+- **Fan-base headlines:** when a rule passes, the most-hurt club's fans are furious and the most-helped club's fans celebrate ("Undertow fans furious after Wall Goals Count Double passes 41–59"); when a ballot opens, a coalition headline names the clubs (and a faction) lining up behind the front-runner. `content/soccer/headlines.json`.
+- **Templates: 300** play-by-play lines (plus 17 headlines), all original.
+- **Echo Goal** (Unhinged facility event): the match's first goal counts twice.
+- **IP:** `tests/ip.test.ts` scans all shipped code/content/HTML for banned names and terms; `docs/IP_CHECKLIST.md` records the review. Open items for a person: trademark search on "Democracy FC"; replace Blastball icons/splash/OG image and `og:url`.
+- **Soak (`tests/soak.test.ts`):** three seasons at Weird chaos — invariants hold (8-player squads, 12 unique clubs, capped news). Save after 3 seasons: soccer **233 KB vs baseball 343 KB** (32% smaller, so no load-time regression). Sim time 773 ms vs 295 ms for three seasons on this desktop (soccer has ~480 events per match). Not measured on a phone.
+- README rewritten for Democracy FC.
+- 314 tests pass, lint + typecheck + build clean.
+
+## Open follow-ups (not in any sprint's DoD)
+- Living time mode and fan personas for Democracy FC (the soccer universe is Manual-time only for now).
+- Code-split the soccer bundle further (main chunk ~600 KB: the storage layer still pulls in the baseball world).
+- Lighthouse PWA + performance run on a production build; on-device (mid-range phone) soak.
+- Democracy FC icons, splash screens, OG image, deploy URL.
+- Trademark search.

@@ -122,3 +122,12 @@ describe('club fan-base voting (S6)', () => {
     expect(u.league.teams.find((t) => t.id === back.teamId)!.squad).toContain(gone.player.id);
   });
 });
+
+describe('fan-base headlines (S8)', () => {
+  it('elections produce coalition and fan reaction headlines with no unfilled slots', () => {
+    const u = runSoccerCommand(createSoccerWorld('u', settings({ seed: 'heads' }), null, 0), { type: 'simDays', count: 21 }).state;
+    const lines = u.news.map((n) => n.text);
+    expect(lines.some((t) => /fans (furious|celebrate)|Outrage|supporters|fan forums|We did that|chanting|Chanting|status quo|Status quo|No change|keep the facility/i.test(t))).toBe(true);
+    for (const t of lines) expect(t).not.toMatch(/\{\w+\}|undefined/);
+  });
+});

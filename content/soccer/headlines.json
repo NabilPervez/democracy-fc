@@ -1,0 +1,27 @@
+{
+ "furious": [
+  "{club} fans furious after {rule} passes {pct}–{rest}.",
+  "Outrage in the {club} Wing: {rule} is now law.",
+  "{club} supporters burn their ballots after {rule} goes through.",
+  "\"Rigged,\" say {club} fans, as {rule} wins {pct}–{rest}.",
+  "{club} fan forums go dark after the {rule} vote."
+ ],
+ "delighted": [
+  "{club} fans celebrate: {rule} passes {pct}–{rest}.",
+  "{club} supporters claim credit for {rule}.",
+  "Chanting in the {club} stand: {rule} is in.",
+  "{club} fans: \"We did that.\" {rule} wins the vote.",
+  "{club} supporters toast {rule} long into the night."
+ ],
+ "coalition": [
+  "{count} clubs + {faction} back {rule}.",
+  "An alliance forms: {clubs} line up behind {rule}.",
+  "{rule} gains a coalition: {clubs}.",
+  "Rival fans, same ballot: {clubs} all want {rule}."
+ ],
+ "statusQuo": [
+  "The fans keep the facility as it is. The Director is unmoved.",
+  "No change this week. Somewhere, a wall panel sighs.",
+  "Status quo holds. The Purists are smug about it."
+ ]
+}

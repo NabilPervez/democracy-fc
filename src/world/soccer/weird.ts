@@ -44,6 +44,8 @@ export interface FacilityEventDef {
   sealOne?: boolean;
   /** One team (seeded) gets this buff. */
   drillOne?: SoccerDelta;
+  /** The match's first goal is replayed and counts twice (Unhinged only). */
+  echoGoal?: boolean;
   text: string;
 }
 
@@ -134,6 +136,7 @@ export interface MatchFacility {
   events: { eventId: string; text: string }[];
   teamDeltas: Record<string, SoccerDelta>;
   sealed: string[];
+  echoGoal?: boolean;
 }
 
 /** The Director's facility events for one match, decided before kickoff (seeded per match). */
@@ -157,6 +160,7 @@ export function facilityEventsFor(seed: string, season: number, game: SoccerFixt
     out.sealed.push(playerId);
     text = fill(text, { player: league.players[playerId].name });
   }
+  if (def.echoGoal) out.echoGoal = true;
   out.events.push({ eventId: def.id, text });
   return out;
 }
