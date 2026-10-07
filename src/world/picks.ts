@@ -1,5 +1,5 @@
-import type { BoxScore } from '../engine/boxScore';
-import type { League } from '../engine/types';
+import type { BoxScore } from '../engine/baseball/boxScore';
+import type { League } from '../engine/baseball/types';
 
 /**
  * Player picks: back players you believe in, fade players you expect to struggle.

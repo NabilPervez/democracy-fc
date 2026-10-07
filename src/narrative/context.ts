@@ -1,4 +1,4 @@
-import type { GameEvent } from '../engine/types';
+import type { GameEvent } from '../engine/baseball/types';
 import type { NarrativeContext } from './templates';
 
 /** Facts about the game that the event stream doesn't carry. All optional, so tests and old callers still work. */

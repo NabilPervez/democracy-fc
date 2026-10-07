@@ -1,4 +1,4 @@
-import { createRng, type Rng } from './rng';
+import { createRng, type Rng } from '../core/rng';
 import type { Bases, CauseRef, EnvEventDef, GameEnvironment, GameEvent, GameResult, Half, HitKind, League, OutKind, Player, ScheduledGame, Team } from './types';
 import { simulateGameV2 } from './v2/game';
 

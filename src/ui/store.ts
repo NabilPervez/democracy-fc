@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GameEvent } from '../engine/types';
+import type { GameEvent } from '../engine/baseball/types';
 import * as store from '../storage/db';
 import { sim } from '../worker/client';
 import { requestPersistenceOnce } from './pwa';

@@ -1,4 +1,4 @@
-import { fullLine, type StatLine } from '../engine/boxScore';
+import { fullLine, type StatLine } from '../engine/baseball/boxScore';
 import { assignClimates } from '../world/environment';
 import { createFactions } from '../world/factions';
 import { initialAge, initialExperience } from '../world/seasons';
@@ -157,6 +157,8 @@ export const migrations: Record<number, Migration> = {
       forecastReveal: null,
     };
   },
+  // v13 → v14 (Democracy FC S1): the sport abstraction. Every existing save is baseball.
+  13: (save) => ({ ...save, sport: 'baseball' }),
 };
 
 export function migrateSave(raw: unknown): UniverseState {

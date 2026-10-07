@@ -13,7 +13,7 @@ import { BACKUP_EVERY_DAYS } from '../components/TimeBits';
 import { useGame } from '../store';
 import { RIVAL_MIN_GAMES, TEAM_PERKS } from '../../world/teams';
 import { GROUP_HELP, RATING_HELP, describeDelta } from '../../world/statHelp';
-import type { RatingKey } from '../../engine/types';
+import type { RatingKey } from '../../engine/baseball/types';
 
 type Status = 'live' | 'soon';
 

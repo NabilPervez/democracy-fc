@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { createRng } from '../../engine/rng';
+import { createRng } from '../../engine/core/rng';
 import { stars } from '../../engine/season';
-import type { Player, Team } from '../../engine/types';
+import type { Player, Team } from '../../engine/baseball/types';
 import { flavorOf, RARITY_LABEL, rarityOf, TIER_LABEL, tierOf, type Rarity, type Tier } from '../../world/rarity';
 import { careerPhase, PHASE_LABEL } from '../../world/seasons';
 import type { UniverseState } from '../../world/universe';

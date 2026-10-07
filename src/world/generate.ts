@@ -1,6 +1,6 @@
 import names from '../../content/names.json';
-import { createRng, type Rng } from '../engine/rng';
-import type { League, Player, RatingKey, Ratings, Role, Team } from '../engine/types';
+import { createRng, type Rng } from '../engine/core/rng';
+import type { League, Player, RatingKey, Ratings, Role, Team } from '../engine/baseball/types';
 
 const RATING_KEYS: RatingKey[] = ['contact', 'power', 'discipline', 'velocity', 'control', 'stuff', 'speed', 'defense'];
 const BATTER_POSITIONS = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];

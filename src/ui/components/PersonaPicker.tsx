@@ -1,4 +1,4 @@
-import type { Team } from '../../engine/types';
+import type { Team } from '../../engine/baseball/types';
 import { PERSONA_KINDS, PERSONAS, type Persona, type PersonaKind } from '../../world/persona';
 
 /** Controlled persona form, used on universe creation and for saves made before personas existed. */

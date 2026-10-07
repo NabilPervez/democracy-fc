@@ -3,7 +3,7 @@
  * Seasons simmed with engineVersion <= 2 (every save created before Sprint 12) keep using it until
  * their next season starts, so results never change mid-season. New engine work goes in ../game.ts.
  */
-import { createRng, type Rng } from '../rng';
+import { createRng, type Rng } from '../../core/rng';
 import type { Bases, GameEvent, GameResult, Half, HitKind, League, OutKind, Player, ScheduledGame, Team } from '../types';
 
 const MAX_INNINGS = 30; // safety valve; extra-inning ghost runners make this practically unreachable

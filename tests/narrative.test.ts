@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import raw from '../content/narrative/templates.json';
-import { simulateGame } from '../src/engine/game';
+import { simulateGame } from '../src/engine/baseball/game';
 import { generateSchedule } from '../src/engine/season';
-import type { GameEvent, GameResult, ScheduledGame } from '../src/engine/types';
+import type { GameEvent, GameResult, ScheduledGame } from '../src/engine/baseball/types';
 import { buildContext } from '../src/narrative/context';
 import { describeEvent, templateFor, templateKind } from '../src/narrative/playByPlay';
 import { PLAY_TEMPLATES, TEMPLATE_KINDS, validateTemplates } from '../src/narrative/templates';

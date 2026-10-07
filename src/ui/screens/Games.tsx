@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ScheduledGame } from '../../engine/types';
+import type { ScheduledGame } from '../../engine/baseball/types';
 import { betsThisSeason, gamesOn, isSeasonOver, lastScheduledDay, seasonDays, stadiumEnvironment, unplayedToday } from '../../world/universe';
 import { formatMult } from '../../engine/odds';
 import { BetPanel, MassBet } from '../components/BetPanel';

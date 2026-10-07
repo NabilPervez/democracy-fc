@@ -1,6 +1,6 @@
 import corePack from '../../content/weird/core.json';
-import { createRng } from '../engine/rng';
-import type { League, Player, RatingKey, ScheduledGame } from '../engine/types';
+import { createRng } from '../engine/core/rng';
+import type { League, Player, RatingKey, ScheduledGame } from '../engine/baseball/types';
 import { assignClimates } from './environment';
 import { makeRookie } from './generate';
 

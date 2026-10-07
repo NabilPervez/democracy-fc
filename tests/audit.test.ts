@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { simulateGame } from '../src/engine/game';
-import type { League, RatingKey, ScheduledGame } from '../src/engine/types';
+import { simulateGame } from '../src/engine/baseball/game';
+import type { League, RatingKey, ScheduledGame } from '../src/engine/baseball/types';
 import { stadiumPerk, teamPerk } from '../src/world/teams';
 import { createUniverse, gameLeague, type UniverseSettings } from '../src/world/universe';
 

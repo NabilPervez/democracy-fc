@@ -1,7 +1,7 @@
 import raw from '../../content/weird/environment.json';
 import core from '../../content/weird/core.json';
-import { createRng } from '../engine/rng';
-import type { EnvEffectType, EnvEventDef, EnvPhase, GameEnvironment, GameEvent } from '../engine/types';
+import { createRng } from '../engine/core/rng';
+import type { EnvEffectType, EnvEventDef, EnvPhase, GameEnvironment, GameEvent } from '../engine/baseball/types';
 import type { Chaos } from './weird';
 
 /**

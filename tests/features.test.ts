@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyLine, type BoxScore } from '../src/engine/boxScore';
+import { emptyLine, type BoxScore } from '../src/engine/baseball/boxScore';
 import { leaderboards } from '../src/world/leaders';
 import { MAX_BACKED, PICK_RATES, pickPayout } from '../src/world/picks';
 import {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { emptyLine, type BoxScore } from '../src/engine/boxScore';
-import { simulateGame } from '../src/engine/game';
+import { emptyLine, type BoxScore } from '../src/engine/baseball/boxScore';
+import { simulateGame } from '../src/engine/baseball/game';
 import { gamesToPrune } from '../src/storage/retention';
 import { generateProposals, marginalCost, RESURRECTION_OFFER_PM, votesCost } from '../src/world/elections';
 import { ENVIRONMENT } from '../src/world/environment';

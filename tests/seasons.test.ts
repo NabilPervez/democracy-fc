@@ -158,7 +158,7 @@ describe('save fixtures', () => {
     const u = migrateSave(structuredClone(raw));
     const strip = (x: object) => ({ ...x, saveVersion: undefined, factionOpinion: undefined, picks: undefined, pickEarnings: undefined, lastBailoutDay: undefined, experience: undefined, collection: undefined, h2h: undefined, weird: undefined, seasonStats: undefined, careerStats: undefined, statsBySeason: undefined,
       persona: undefined, picksLifetime: undefined, pickStreaks: undefined, pickLock: undefined, perkUses: undefined, xpToday: undefined, watched: undefined,
-      rallyCry: undefined, jinx: undefined, waveGameId: undefined, tempClimates: undefined, collectorPaid: undefined, forecastReveal: undefined });
+      rallyCry: undefined, jinx: undefined, waveGameId: undefined, tempClimates: undefined, collectorPaid: undefined, forecastReveal: undefined, sport: undefined });
     expect(strip(u)).toEqual(strip(raw));
     // v10 → v11 only adds the new stat columns, at 0.
     const [id, line] = Object.entries(raw.careerStats as Record<string, object>)[0];

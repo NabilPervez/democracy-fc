@@ -1,5 +1,5 @@
-import { createRng } from '../engine/rng';
-import type { League, RatingKey, Team } from '../engine/types';
+import { createRng } from '../engine/core/rng';
+import type { League, RatingKey, Team } from '../engine/baseball/types';
 
 /**
  * Team identity: a seeded bio, one unique perk that only that team gets, head-to-head records

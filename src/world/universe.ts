@@ -1,8 +1,9 @@
-import { addLines, boxScore, emptyLine, type BoxScore, type StatLine } from '../engine/boxScore';
-import { ENGINE_VERSION, simulateGame } from '../engine/game';
+import { addLines, boxScore, emptyLine, type BoxScore, type StatLine } from '../engine/baseball/boxScore';
+import { getSport } from '../engine/core/registry';
+import type { SportId } from '../engine/core/sport';
 import { oddsForGame } from '../engine/odds';
 import { computeStandings, generateSchedule } from '../engine/season';
-import type { GameEnvironment, GameEvent, League, RatingKey, ScheduledGame } from '../engine/types';
+import type { GameEnvironment, GameEvent, GameResult, League, RatingKey, ScheduledGame } from '../engine/baseball/types';
 import type { Clock, DayLengthMinutes } from './clock';
 import { applyEffect, marginalCost, openElection, playerVoteTotal, tally, winnerOf, type Election } from './elections';
 import { createFactions, type Faction } from './factions';
@@ -11,7 +12,7 @@ import { generateLeague } from './generate';
 import { levelOf, perk, perkValue, personaMultiplier, PERSONA_DEFS, PERSONAS, REBRAND_COST, winningPayout, xpFor, xpOf, type Persona, type PersonaKind, type XpEvent, type XpFacts } from './persona';
 import { emptyPicks, lockUnlocked, maxBacked, maxFaded, newUnlocks, pickOf, settlePicks, type PickKind, type Picks } from './picks';
 import { advancePlayoffs, ageRatingOffset, initialAge, initialExperience, isPlayoffGame, rookieAge, runOffseason, seasonAwards, startPlayoffs, type Phase, type Playoffs, type SeasonRecord } from './seasons';
-import { createRng } from '../engine/rng';
+import { createRng } from '../engine/core/rng';
 import { relegate } from './relegation';
 import { isRivalry, recordWithWin, RIVALRY_BONUS, stadiumPerk, teamPerk, type HeadToHead } from './teams';
 import { ENVIRONMENT, envEventDef, gameEnvironment } from './environment';
@@ -25,7 +26,7 @@ export const RULES = mergePacks(DEFAULT_PACKS);
  * `reduce(state, event)`, so the same events always produce the same state.
  */
 
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 /** Out of coins with nothing riding? The league office tops you back up (once a day). */
 export const BAILOUT_COINS = 100;
@@ -118,6 +119,8 @@ export interface LedgerEntry {
 
 export interface UniverseState {
   saveVersion: number;
+  /** Which match engine this universe runs (Democracy FC S1). Old saves are baseball. */
+  sport: SportId;
   /** Engine the current season is simmed with. Saves from before Sprint 12 move to the new engine at their next season. */
   engineVersion: number;
   id: string;
@@ -270,7 +273,8 @@ export function createUniverse(id: string, settings: UniverseSettings, now: numb
   const league = shapeByAge(generated, ages);
   const base: UniverseState = {
     saveVersion: SAVE_VERSION,
-    engineVersion: ENGINE_VERSION,
+    sport: 'baseball',
+    engineVersion: getSport('baseball').engineVersion,
     id,
     createdAt: now,
     settings,
@@ -617,7 +621,7 @@ export function offseasonProjection(s: UniverseState, playerId: string): { retir
 /** The Prophet's Forecast: the first environment event today's remaining games will see. */
 function todaysForecast(s: UniverseState): string {
   for (const g of unplayedToday(s)) {
-    const events = simulateGame(gameLeague(s, g), g, s.season, s.engineVersion, stadiumEnvironment(s, g)).events;
+    const events = simulate(s, g).events;
     const e = events.find((x) => x.kind === 'envStart');
     if (e && e.kind === 'envStart') {
       const def = envEventDef(e.envId);
@@ -1196,7 +1200,7 @@ export function runCommand(start: UniverseState, cmd: Command): CommandResult {
 
   const play = (game: ScheduledGame) => {
     if (state.results[game.id]) return;
-    const result = simulateGame(gameLeague(state, game), game, state.season, state.engineVersion, stadiumEnvironment(state, game));
+    const result = simulate(state, game);
     apply({
       type: 'gamePlayed',
       summary: {
@@ -1251,10 +1255,19 @@ export function runCommand(start: UniverseState, cmd: Command): CommandResult {
   return { state, events, pbp: pbp.filter((p) => p.day >= minDay) };
 }
 
+/** Every match goes through the universe's sport engine (Democracy FC S1). */
+function simulate(state: UniverseState, game: ScheduledGame): GameResult {
+  return getSport(state.sport).simulate(gameLeague(state, game), game, {
+    seasonId: state.season,
+    engineVersion: state.engineVersion,
+    env: stadiumEnvironment(state, game),
+  });
+}
+
 /** Recreate a game's play-by-play from its seed (works for any game, since the sim is deterministic). */
 export function replayGame(state: UniverseState, gameId: string): GameEvent[] {
   const game = state.schedule.find((g) => g.id === gameId)!;
-  return simulateGame(gameLeague(state, game), game, state.season, state.engineVersion, stadiumEnvironment(state, game)).events;
+  return simulate(state, game).events;
 }
 
 const rollInput = (s: UniverseState) => ({
@@ -1400,7 +1413,7 @@ function newSeason(s: UniverseState): UniverseState {
   let next: UniverseState = {
     ...s,
     // A new season is the only time the engine changes, so bets and picks never straddle two engines.
-    engineVersion: ENGINE_VERSION,
+    engineVersion: getSport(s.sport).engineVersion,
     watched: [],
     rallyCry: null,
     waveGameId: null,

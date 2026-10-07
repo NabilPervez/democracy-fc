@@ -1,4 +1,4 @@
-import type { ScheduledGame } from '../engine/types';
+import type { ScheduledGame } from '../engine/baseball/types';
 import { isRivalry } from '../world/teams';
 import { RULES, type UniverseState } from '../world/universe';
 import { findPlayerMod, isActiveMod } from '../world/weird';

@@ -1,6 +1,6 @@
 import names from '../../content/names.json';
-import { createRng } from '../engine/rng';
-import type { League, Player, Role, Team } from '../engine/types';
+import { createRng } from '../engine/core/rng';
+import type { League, Player, Role, Team } from '../engine/baseball/types';
 import { LINEUP_SIZE, makeRatings, ROTATION_SIZE, uniqueName } from './generate';
 
 /**

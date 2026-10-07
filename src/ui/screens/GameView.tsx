@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { GameEvent } from '../../engine/types';
+import type { GameEvent } from '../../engine/baseball/types';
 import { describeEvent, isBigMoment } from '../../narrative/playByPlay';
 import { narrativeExtras } from '../../narrative/fromUniverse';
 import { envFooter } from '../../world/environment';

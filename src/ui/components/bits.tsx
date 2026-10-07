@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { Bases, Team } from '../../engine/types';
+import type { Bases, Team } from '../../engine/baseball/types';
 
 export function Stars({ value, label }: { value: number; label: string }) {
   const full = Math.floor(value);

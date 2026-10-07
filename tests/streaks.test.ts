@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyLine, type BoxScore } from '../src/engine/boxScore';
+import { emptyLine, type BoxScore } from '../src/engine/baseball/boxScore';
 import { lockUnlocked, maxBacked, maxFaded, newUnlocks, PICK_RATES, settlePicks, streakMultiplierPct } from '../src/world/picks';
 import { backSlots, createUniverse, reduce, type UniverseSettings } from '../src/world/universe';
 

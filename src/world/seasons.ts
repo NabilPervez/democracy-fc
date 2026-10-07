@@ -1,6 +1,6 @@
-import type { StatLine } from '../engine/boxScore';
-import { createRng } from '../engine/rng';
-import type { League, Player, RatingKey, ScheduledGame } from '../engine/types';
+import type { StatLine } from '../engine/baseball/boxScore';
+import { createRng } from '../engine/core/rng';
+import type { League, Player, RatingKey, ScheduledGame } from '../engine/baseball/types';
 import { makeRookie } from './generate';
 
 /**

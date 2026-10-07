@@ -1,4 +1,4 @@
-import type { RatingKey, StarGroup } from '../engine/types';
+import type { RatingKey, StarGroup } from '../engine/baseball/types';
 
 /**
  * Plain-language help for every rating, matching what src/engine/game.ts actually does with it.

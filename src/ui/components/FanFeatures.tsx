@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Player } from '../../engine/types';
+import type { Player } from '../../engine/baseball/types';
 import { leaderboards, type Board } from '../../world/leaders';
 import { lockUnlocked, PICK_RATES, pickOf, SLOT_UNLOCKS, streakMultiplierPct, type PickKind } from '../../world/picks';
 import { backSlots, fadeSlots, FAVORITE_LOCKS_AFTER_SEASON, FAVORITE_WIN_BONUS, pickError, type UniverseState } from '../../world/universe';

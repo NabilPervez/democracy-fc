@@ -1,4 +1,4 @@
-import type { GameResult, Player, Ratings, ScheduledGame, StarGroup, Team } from './types';
+import type { GameResult, Player, Ratings, ScheduledGame, StarGroup, Team } from './baseball/types';
 
 const STAR_GROUPS: Record<StarGroup, (keyof Ratings)[]> = {
   batting: ['contact', 'power', 'discipline'],

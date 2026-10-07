@@ -1,5 +1,5 @@
-import { createRng } from '../engine/rng';
-import type { League, RatingKey } from '../engine/types';
+import { createRng } from '../engine/core/rng';
+import type { League, RatingKey } from '../engine/baseball/types';
 import { FACTION_BUDGET, type Faction, type Tag } from './factions';
 
 /** Weekly elections (PRD §6–7). Proposals are data; their effects are applied to the league. */

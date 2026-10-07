@@ -1,5 +1,5 @@
 import { wrap } from 'comlink';
-import type { GameEvent } from '../engine/types';
+import type { GameEvent } from '../engine/baseball/types';
 import { replayGame, runCommand, type Command, type CommandResult, type UniverseState } from '../world/universe';
 import type { SimApi } from './sim.worker';
 

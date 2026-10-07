@@ -1,6 +1,6 @@
 import content from '../../content/personas/personas.json';
-import { createRng } from '../engine/rng';
-import type { Player, RatingKey } from '../engine/types';
+import { createRng } from '../engine/core/rng';
+import type { Player, RatingKey } from '../engine/baseball/types';
 
 /**
  * Fan personas (PRD §7a, PRD 2 §E4). Chosen once per universe (or changed by a Rebrand). Each earns

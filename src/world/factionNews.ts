@@ -1,4 +1,4 @@
-import { createRng } from '../engine/rng';
+import { createRng } from '../engine/core/rng';
 import type { Election } from './elections';
 import type { Faction } from './factions';
 import { PERSONAS, type Persona } from './persona';

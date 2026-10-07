@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import v3fp from './fixtures/engine-v3-fingerprints.json';
 import v10 from './fixtures/save-v10.json';
-import { boxScore, type StatLine } from '../src/engine/boxScore';
-import { simulateGame } from '../src/engine/game';
-import { hashSeed } from '../src/engine/rng';
+import { boxScore, type StatLine } from '../src/engine/baseball/boxScore';
+import { simulateGame } from '../src/engine/baseball/game';
+import { hashSeed } from '../src/engine/core/rng';
 import { generateSchedule } from '../src/engine/season';
-import type { EnvEventDef, EnvPhase, GameEnvironment, GameEvent, ScheduledGame } from '../src/engine/types';
+import type { EnvEventDef, EnvPhase, GameEnvironment, GameEvent, ScheduledGame } from '../src/engine/baseball/types';
 import { describeEvent } from '../src/narrative/playByPlay';
 import { migrateSave } from '../src/storage/migrate';
 import { assignClimates, eligibleEvents, ENVIRONMENT, envEventDef, envFooter, PHASE_EFFECTS, validateEnvironment } from '../src/world/environment';

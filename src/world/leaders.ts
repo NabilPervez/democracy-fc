@@ -1,5 +1,5 @@
-import type { StatLine } from '../engine/boxScore';
-import type { League } from '../engine/types';
+import type { StatLine } from '../engine/baseball/boxScore';
+import type { League } from '../engine/baseball/types';
 
 /** League leaderboards: hitters and pitchers ranked separately. */
 

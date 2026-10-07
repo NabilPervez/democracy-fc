@@ -1,4 +1,4 @@
-import { ENGINE_VERSION } from '../engine/game';
+import { ENGINE_VERSION } from '../engine/baseball/game';
 import { SAVE_VERSION, type UniverseState } from '../world/universe';
 import { db, type BlastballDB, type GameRow, type SnapshotRow, type WorldEventRow } from './db';
 import { InvalidSaveError, migrateSave } from './migrate';

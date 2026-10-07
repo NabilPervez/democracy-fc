@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { createRng } from '../src/engine/rng';
-import { simulateGame } from '../src/engine/game';
+import { createRng } from '../src/engine/core/rng';
+import { simulateGame } from '../src/engine/baseball/game';
 import { computeStandings, generateSchedule, stars } from '../src/engine/season';
 import { generateLeague } from '../src/world/generate';
 

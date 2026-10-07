@@ -1,4 +1,4 @@
-import { createRng } from '../engine/rng';
+import { createRng } from '../engine/core/rng';
 import { findPlayerMod, isActiveMod } from './weird';
 import { RULES, type UniverseState } from './universe';
 

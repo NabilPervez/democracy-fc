@@ -1,4 +1,4 @@
-import { createRng } from '../engine/rng';
+import { createRng } from '../engine/core/rng';
 
 /**
  * Simulated fan factions (PRD §7). They vote with a fixed budget each election and only ever

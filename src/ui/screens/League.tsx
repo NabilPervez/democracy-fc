@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { avg, emptyLine, era, inningsPitched, type StatLine } from '../../engine/boxScore';
-import type { Player, RatingKey } from '../../engine/types';
+import { avg, emptyLine, era, inningsPitched, type StatLine } from '../../engine/baseball/boxScore';
+import type { Player, RatingKey } from '../../engine/baseball/types';
 import { analystReveal, perk, xpFor } from '../../world/persona';
 import { flavorOf } from '../../world/rarity';
 import { offseasonProjection, standingsOf, type UniverseState } from '../../world/universe';

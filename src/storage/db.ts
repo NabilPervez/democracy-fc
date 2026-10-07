@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { GameEvent } from '../engine/types';
+import type { GameEvent } from '../engine/baseball/types';
 import { isSeasonOver, PBP_DAYS_KEPT, type CommandResult, type UniverseState, type WorldEvent } from '../world/universe';
 import { migrateSave } from './migrate';
 import { perkValue } from '../world/persona';

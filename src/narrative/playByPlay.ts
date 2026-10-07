@@ -1,5 +1,5 @@
-import { createRng } from '../engine/rng';
-import type { GameEvent, League, OutKind } from '../engine/types';
+import { createRng } from '../engine/core/rng';
+import type { GameEvent, League, OutKind } from '../engine/baseball/types';
 import { envEventDef } from '../world/environment';
 import { buildContext, type NarrativeExtras } from './context';
 import { PLAY_TEMPLATES, type NarrativeContext, type PlayTemplate, type TemplateKind } from './templates';

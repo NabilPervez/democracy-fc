@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { formatMult } from '../../engine/odds';
-import type { ScheduledGame } from '../../engine/types';
+import type { ScheduledGame } from '../../engine/baseball/types';
 import { perk } from '../../world/persona';
 import { betError, currentOdds, freeBetError, massBetTargets, offeredMultiplier } from '../../world/universe';
 import { useGame } from '../store';

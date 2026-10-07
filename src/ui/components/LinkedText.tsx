@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
-import type { League } from '../../engine/types';
+import type { League } from '../../engine/baseball/types';
 import { useGame } from '../store';
 
 type Target = { kind: 'player' | 'team'; id: string };

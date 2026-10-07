@@ -1,6 +1,6 @@
 import { stars } from './season';
-import type { League, ScheduledGame } from './types';
-import { startingPitcher } from './game';
+import type { League, ScheduledGame } from './baseball/types';
+import { startingPitcher } from './baseball/game';
 
 /**
  * Pre-game odds from PUBLIC information only: visible star ratings and the standings.
