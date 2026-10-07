@@ -22,11 +22,11 @@ export const soccerEngine: SportEngine<SoccerLeague, SoccerFixture, SoccerResult
   id: 'soccer',
   engineVersion: SOCCER_ENGINE_VERSION,
   allowsDraws: true,
-  simulate: (league, game, ctx) => simulateSoccer(league, game, ctx.seasonId),
+  simulate: (league, game, ctx) => simulateSoccer(league, game, ctx.seasonId, { knockout: ctx.knockout }),
   summarize: (r) => ({
     homeScore: r.homeScore,
     awayScore: r.awayScore,
-    winnerId: r.homeScore > r.awayScore ? r.homeId : r.awayScore > r.homeScore ? r.awayId : null,
+    winnerId: r.shootout?.winnerId ?? (r.homeScore > r.awayScore ? r.homeId : r.awayScore > r.homeScore ? r.awayId : null),
   }),
   starGroups: (p) => {
     const groups = (Object.keys(SOCCER_STAR_GROUPS) as SoccerStarGroup[]).filter((g) => g !== 'keeping' || p.position === 'K');

@@ -40,11 +40,11 @@ Types, generator (8-player squads, drives, styles), possession chains on the 3×
 - [x] Property test: same seed ⇒ identical events (`tests/soccer.determinism.test.ts`).
 - [x] No `Math.random`; `engine/soccer` has zero UI/storage imports.
 
-## S4 — Set pieces, cards, injuries, momentum, shootouts — ⬜
+## S4 — Set pieces, cards, injuries, momentum, shootouts — ✅
 **DoD**
-- [ ] Calibration still in range.
-- [ ] Red card measurably reduces that team's goals (aggregate test).
-- [ ] Shootout always produces a winner.
+- [x] Calibration still in range.
+- [x] Red card measurably reduces that team's goals (aggregate test).
+- [x] Shootout always produces a winner.
 
 ## S4b — Phase Engine — ⬜
 `phase.ts`, block selection, transitions, route/lane, set-piece setups, phase stats in box score.
@@ -55,7 +55,7 @@ Types, generator (8-player squads, drives, styles), possession chains on the 3×
 - [ ] Calibration still passes.
 
 ## S4c — Arena & personality layer — ⬜
-Walls (`wallPass`, `wallShot`, scrambles), accumulated fouls + Spot Kicks + power plays, signature moves, bonds/rivalries, awakening, `arenas.json`.
+Walls (`wallPass`, `wallShot`, scrambles), signature moves (accumulated fouls, Spot Kicks and power plays already landed in S4), bonds/rivalries, awakening, `arenas.json`.
 
 **DoD**
 - [ ] Calibration (5v5) passes; no throw-in/corner/goal-kick events ever.
@@ -137,3 +137,10 @@ Winner-assumption checklist (from grep) and what happened to each:
 - Phases are a first-pass label from zone (`buildUp/progression/creation` vs blocks, transitions on turnovers, set pieces on restarts); S4b replaces this with the real Phase Engine.
 - Not yet wired into `universe.ts` (the world layer is still baseball-typed) — that is the first task of S5.
 - 250 tests pass, lint + typecheck clean. **S3 done.**
+
+### S4 — 2026-10-07
+- Fouls on dribbles (beaten defenders foul more), team-foul counts per half, **accumulated-foul Spot Kicks from the 6th foul** and **red-card power plays** (2 min or until conceding, then a reserve) — both pulled forward from S4c since they live in the same foul code.
+- Free kicks (direct shot in the attacking third), penalties (best Finishing+Composure taker on the floor), yellow / second yellow / straight red, injuries (1–4 matches, reported in `SoccerResult.injuries`, player subbed off), momentum (−10..+10, goals +4, saves +1, cards; fades 1 per possession; ±2 rating), knockout shootouts (best of 5, then sudden death).
+- Calibration now also asserts Spot Kicks 0.3–0.8/match (0.71) and reds < 0.15 (0.11).
+- `tests/soccer.setpieces.test.ts`: power-play scoring drop over 3,000 matches, one power play at a time, momentum bounds, injuries leave the floor, shootout-always-has-a-winner property (300 runs).
+- 255 tests pass, lint + typecheck clean. **S4 done.**

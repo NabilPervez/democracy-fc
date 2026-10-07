@@ -9,11 +9,15 @@ export interface CalibrationStats {
   nilNilRate: number;
   meanShotsPerTeam: number;
   meanChains: number;
+  spotKicksPerMatch: number;
+  penaltiesPerMatch: number;
+  redsPerMatch: number;
+  foulsPerMatch: number;
 }
 
 /** Aggregate stats over n seeded matches (PRD §B5 calibration targets). Not used at runtime. */
 export function calibrate(league: SoccerLeague, n: number, seasonId = 1): CalibrationStats {
-  let goals = 0, draws = 0, home = 0, nil = 0, shots = 0, chains = 0;
+  let goals = 0, draws = 0, home = 0, nil = 0, shots = 0, chains = 0, spots = 0, pens = 0, reds = 0, fouls = 0;
   const teams = league.teams;
   for (let i = 0; i < n; i++) {
     const h = teams[i % teams.length];
@@ -26,8 +30,12 @@ export function calibrate(league: SoccerLeague, n: number, seasonId = 1): Calibr
     if (r.homeScore + r.awayScore === 0) nil++;
     for (const e of r.events) {
       if (e.kind === 'shot') shots++;
+      if (e.kind === 'penalty' && e.spot === 'spotKick') spots++;
+      if (e.kind === 'penalty' && e.spot === 'penalty') pens++;
+      if (e.kind === 'card' && e.color === 'red') reds++;
+      if (e.kind === 'tackle') fouls++;
       if (e.kind === 'possession' || e.kind === 'kickoff' || e.kind === 'keeperRestart') chains++;
     }
   }
-  return { matches: n, meanGoals: goals / n, drawRate: draws / n, homeWinRate: home / n, nilNilRate: nil / n, meanShotsPerTeam: shots / n / 2, meanChains: chains / n };
+  return { matches: n, meanGoals: goals / n, drawRate: draws / n, homeWinRate: home / n, nilNilRate: nil / n, meanShotsPerTeam: shots / n / 2, meanChains: chains / n, spotKicksPerMatch: spots / n, penaltiesPerMatch: pens / n, redsPerMatch: reds / n, foulsPerMatch: fouls / n };
 }

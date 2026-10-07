@@ -16,6 +16,9 @@ describe('soccer calibration (PRD §B5, chaos = calm)', () => {
     expect(stats.meanShotsPerTeam).toBeLessThanOrEqual(28);
     expect(stats.meanChains).toBeGreaterThanOrEqual(90);
     expect(stats.meanChains).toBeLessThanOrEqual(120);
+    expect(stats.spotKicksPerMatch).toBeGreaterThanOrEqual(0.3);
+    expect(stats.spotKicksPerMatch).toBeLessThanOrEqual(0.8);
+    expect(stats.redsPerMatch).toBeLessThan(0.15);
   });
 
   it('other league seeds stay near the bands (league make-up shifts scoring a little)', () => {

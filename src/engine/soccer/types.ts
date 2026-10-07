@@ -93,6 +93,16 @@ export type SoccerEvent = SEventBase & (
   | { kind: 'shot'; playerId: string; assistId?: string; quality: number; outcome: ShotOutcome; keeperId: string; blockerId?: string }
   | { kind: 'goal'; scorerId: string; assistId?: string; teamId: string }
   | { kind: 'keeperRestart'; teamId: string; keeperId: string }
+  // S4: fouls, set pieces, cards, injuries, shootouts.
+  | { kind: 'tackle'; defenderId: string; victimId: string; foul: true }
+  | { kind: 'teamFouls'; teamId: string; count: number }
+  | { kind: 'freeKick' | 'spotKick'; teamId: string; takerId: string }
+  | { kind: 'penalty'; takerId: string; keeperId: string; scored: boolean; spot: 'penalty' | 'spotKick' }
+  | { kind: 'card'; playerId: string; teamId: string; color: 'yellow' | 'red' }
+  | { kind: 'powerPlay'; teamId: string; untilSecond: number }
+  | { kind: 'powerPlayEnd'; teamId: string; inId: string | null }
+  | { kind: 'injury'; playerId: string; teamId: string; matches: number }
+  | { kind: 'shootout'; kicks: { teamId: string; takerId: string; scored: boolean }[]; winnerId: string }
   | { kind: 'sub'; teamId: string; outId: string; inId: string }
   | { kind: 'halfTime' }
   | { kind: 'fullTime'; winnerId: string | null }
@@ -106,5 +116,9 @@ export interface SoccerResult {
   homeScore: number;
   /** Starting fives, keeper first. */
   lineups: { home: string[]; away: string[] };
+  /** Knockout matches level after 40 minutes go to penalties (§B5). */
+  shootout?: { home: number; away: number; winnerId: string };
+  /** Players hurt this match and how many matches they miss. */
+  injuries: Record<string, number>;
   events: SoccerEvent[];
 }

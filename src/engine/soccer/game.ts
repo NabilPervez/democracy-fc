@@ -73,6 +73,11 @@ interface Side {
   bench: string[];
   /** Per-player match swing (Spark drive), fixed at kickoff. */
   swing: Record<string, number>;
+  /** Fouls this half (from the 6th, every foul gives a Spot Kick). */
+  fouls: number;
+  yellows: Record<string, number>;
+  /** Red card power play: the emptied slot (shown as '' in `five`) and when a reserve may come on. */
+  short: { slot: number; until: number } | null;
 }
 
 interface MatchState {
@@ -84,6 +89,9 @@ interface MatchState {
   second: number;
   halfEnd: number;
   stamina: Record<string, number>;
+  /** −10..+10, home perspective (§B5 Momentum). */
+  momentum: number;
+  injuries: Record<string, number>;
   events: SoccerEvent[];
 }
 
@@ -92,6 +100,12 @@ export function soccerSeed(universeSeed: string, seasonId: number, gameId: strin
 }
 
 const sideIndex = (s: MatchState, teamId: string) => (s.sides[0].team.id === teamId ? 0 : 1);
+const otherSide = (s: MatchState, side: Side) => (s.sides[0] === side ? s.sides[1] : s.sides[0]);
+
+/** Shift momentum toward one side, bounded to −10..+10. Integer math. */
+function swingMomentum(s: MatchState, toward: Side, amount: number) {
+  s.momentum = clamp(s.momentum + (toward.home ? amount : -amount), -10, 10);
+}
 
 function rating(s: MatchState, side: Side, id: string, key: SoccerRatingKey): number {
   const p = s.league.players[id];
@@ -101,6 +115,11 @@ function rating(s: MatchState, side: Side, id: string, key: SoccerRatingKey): nu
   if (st < 60) v -= Math.trunc((60 - st) / 4);
   // Ice: composure bonus in the last 10 minutes of the match.
   if (key === 'composure' && p.drive === 'ice' && s.half === 2 && s.second >= s.halfEnd - 600) v += 15;
+  // Momentum lifts the side that has it (±2 at the extremes).
+  v += Math.trunc((side.home ? s.momentum : -s.momentum) / 4);
+  // Power play: four can't cover the floor, and everyone has more room against them.
+  if (side.short) v -= 6;
+  if (otherSide(s, side).short) v += 5;
   return clamp(v, 1, 110);
 }
 
@@ -109,9 +128,9 @@ const avg2 = (s: MatchState, side: Side, id: string, a: SoccerRatingKey, b: Socc
 
 function playerAt(s: MatchState, side: Side, positions: readonly SoccerPosition[], exclude?: string): string {
   const pos = s.rng.pick(positions);
-  const candidates = side.five.filter((id, i) => id !== exclude && slotOf(i) === pos);
+  const candidates = side.five.filter((id, i) => id && id !== exclude && slotOf(i) === pos);
   if (candidates.length) return s.rng.pick(candidates);
-  const outfield = side.five.filter((id, i) => id !== exclude && i > 0);
+  const outfield = side.five.filter((id, i) => id && id !== exclude && i > 0);
   return outfield.length ? s.rng.pick(outfield) : side.five[0];
 }
 
@@ -129,6 +148,7 @@ function emit(s: MatchState, attacking: Side, zone: Zone | undefined, e: EventIn
     score: { ...s.score },
     possessionTeamId: attacking.team.id,
     zone,
+    momentum: s.momentum,
     phase: e.phase ?? IN_POSSESSION[z],
     defPhase: e.defPhase ?? BLOCK_PHASE[BLOCK_OF[z]],
     ...e,
@@ -157,6 +177,7 @@ function pickAction(s: MatchState, side: Side, carrier: string, zone: Zone, step
 function drainStamina(s: MatchState, seconds: number) {
   for (const side of s.sides) {
     for (const id of side.five) {
+      if (!id) continue;
       // Keepers barely tire; outfielders lose more the lower their Stamina rating.
       const base = side.five[0] === id ? 1 : 3 + Math.trunc((100 - rating(s, side, id, 'stamina')) / 20);
       s.stamina[id] = Math.max(0, (s.stamina[id] ?? 100) - Math.trunc((base * seconds) / 25));
@@ -170,7 +191,7 @@ function rollingSubs(s: MatchState) {
   for (const side of s.sides) {
     for (let i = 1; i < side.five.length; i++) {
       const out = side.five[i];
-      if ((s.stamina[out] ?? 100) >= 45) continue;
+      if (!out || (s.stamina[out] ?? 100) >= 45) continue;
       const fresh = side.bench
         .filter((id) => s.league.players[id].position !== 'K' && (s.stamina[id] ?? 100) >= 75)
         .sort((a, b) => (s.stamina[b] ?? 100) - (s.stamina[a] ?? 100) || side.bench.indexOf(a) - side.bench.indexOf(b))[0];
@@ -180,6 +201,141 @@ function rollingSubs(s: MatchState) {
       emit(s, side, undefined, { kind: 'sub', teamId: side.team.id, outId: out, inId: fresh, phase: 'attSetPiece', defPhase: 'defSetPiece' });
     }
   }
+}
+
+/** A goal: score, momentum, and a short-handed conceding side gets its fifth player back. */
+function scoreGoal(s: MatchState, att: Side, def: Side, zone: Zone, scorerId: string, assistId: string | undefined) {
+  if (att.home) s.score.home++;
+  else s.score.away++;
+  emit(s, att, zone, { kind: 'goal', scorerId, assistId, teamId: att.team.id });
+  swingMomentum(s, att, 4);
+  if (def.short) endPowerPlay(s, def);
+}
+
+/** The freshest reserve for a slot (keepers only for the keeper slot). */
+function bestReserve(s: MatchState, side: Side, slot: number): string | null {
+  const keeper = slot === 0;
+  const pool = side.bench.filter((id) => (s.league.players[id].position === 'K') === keeper);
+  if (!pool.length) return null;
+  return pool.reduce((best, id) => ((s.stamina[id] ?? 100) > (s.stamina[best] ?? 100) ? id : best));
+}
+
+function endPowerPlay(s: MatchState, side: Side) {
+  if (!side.short) return;
+  const { slot } = side.short;
+  const inId = bestReserve(s, side, slot);
+  if (inId) {
+    side.five[slot] = inId;
+    side.bench = side.bench.filter((id) => id !== inId);
+  }
+  side.short = null;
+  emit(s, side, undefined, { kind: 'powerPlayEnd', teamId: side.team.id, inId, phase: 'attSetPiece', defPhase: 'defSetPiece' });
+}
+
+/** Take a player off for good (red card or injury). A red leaves the side short for 2 minutes (§B5). */
+function removePlayer(s: MatchState, side: Side, id: string, red: boolean) {
+  let slot = side.five.indexOf(id);
+  if (slot < 0) return;
+  side.five[slot] = '';
+  if (slot === 0) {
+    // The backup keeper has to come on; an outfielder makes way instead.
+    const k = bestReserve(s, side, 0);
+    if (k) {
+      side.five[0] = k;
+      side.bench = side.bench.filter((x) => x !== k);
+      const giveUp = side.five.findIndex((x, i) => i > 0 && x);
+      if (red && giveUp > 0) {
+        side.bench.push(side.five[giveUp]);
+        side.five[giveUp] = '';
+        slot = giveUp;
+      } else slot = -1;
+    }
+  }
+  if (slot < 0) return;
+  if (red && !side.short) {
+    side.short = { slot, until: s.second + 120 };
+    emit(s, side, undefined, { kind: 'powerPlay', teamId: side.team.id, untilSecond: side.short.until, phase: 'defSetPiece', defPhase: 'attSetPiece' });
+    return;
+  }
+  const inId = bestReserve(s, side, slot);
+  if (inId) {
+    side.five[slot] = inId;
+    side.bench = side.bench.filter((x) => x !== inId);
+    emit(s, side, undefined, { kind: 'sub', teamId: side.team.id, outId: id, inId, phase: 'attSetPiece', defPhase: 'defSetPiece' });
+  }
+}
+
+/** Best spot-kick taker on the floor: Finishing + Composure. */
+function penaltyTaker(s: MatchState, side: Side): string {
+  const outfield = side.five.filter((id, i) => id && i > 0);
+  const score = (id: string) => rating(s, side, id, 'finishing') + rating(s, side, id, 'composure');
+  return outfield.reduce((best, id) => (score(id) > score(best) ? id : best));
+}
+
+function kickScores(s: MatchState, att: Side, def: Side, taker: string, base: number): boolean {
+  const skill = Math.trunc((rating(s, att, taker, 'finishing') + rating(s, att, taker, 'composure')) / 2);
+  const keeper = def.five[0];
+  return s.rng.chance(clamp(base + (skill - 50) * 3 - (rating(s, def, keeper, 'reflexes') - 50) * 2, 450, 930));
+}
+
+export const FOUL_RATES = {
+  /** Per mille, a beaten defender brings the dribbler down. */
+  beaten: 310,
+  /** Per mille, a winning tackle is a foul anyway. */
+  won: 80,
+  /** Per mille of fouls in the attacking third that are in the box (penalty). */
+  inBox: 70,
+  yellow: 90,
+  red: 4,
+  injury: 14,
+  /** Team fouls per half before Spot Kicks start (the 6th foul and every one after). */
+  spotKickFrom: 6,
+};
+
+/** A foul by `fouler` on `victim`. Returns the next chain, or 'continue' when the attack keeps the ball. */
+function foul(s: MatchState, att: Side, def: Side, zone: Zone, victim: string, fouler: string): ChainStart | 'continue' {
+  const attI = sideIndex(s, att.team.id);
+  emit(s, att, zone, { kind: 'tackle', defenderId: fouler, victimId: victim, foul: true });
+  def.fouls++;
+  emit(s, att, zone, { kind: 'teamFouls', teamId: def.team.id, count: def.fouls });
+
+  const yellows = def.yellows[fouler] ?? 0;
+  const straightRed = s.rng.chance(FOUL_RATES.red);
+  const yellow = !straightRed && s.rng.chance(FOUL_RATES.yellow);
+  if (yellow) {
+    def.yellows[fouler] = yellows + 1;
+    emit(s, att, zone, { kind: 'card', playerId: fouler, teamId: def.team.id, color: 'yellow' });
+    swingMomentum(s, att, 1);
+  }
+  if (straightRed || (yellow && yellows >= 1)) {
+    emit(s, att, zone, { kind: 'card', playerId: fouler, teamId: def.team.id, color: 'red' });
+    swingMomentum(s, att, 2);
+    removePlayer(s, def, fouler, true);
+  }
+  if (s.rng.chance(FOUL_RATES.injury) && att.five.includes(victim)) {
+    const matches = s.rng.range(1, 4);
+    s.injuries[victim] = matches;
+    emit(s, att, zone, { kind: 'injury', playerId: victim, teamId: att.team.id, matches });
+    removePlayer(s, att, victim, false);
+  }
+
+  const keeper = def.five[0];
+  const spot = zone === 'att' && s.rng.chance(FOUL_RATES.inBox) ? 'penalty' : def.fouls >= FOUL_RATES.spotKickFrom ? 'spotKick' : null;
+  if (spot) {
+    const taker = penaltyTaker(s, att);
+    if (spot === 'spotKick') emit(s, att, zone, { kind: 'spotKick', teamId: att.team.id, takerId: taker, phase: 'attSetPiece', defPhase: 'defSetPiece' });
+    const scored = kickScores(s, att, def, taker, spot === 'penalty' ? 760 : 640);
+    emit(s, att, 'att', { kind: 'penalty', takerId: taker, keeperId: keeper, scored, spot, phase: 'attSetPiece', defPhase: 'defSetPiece' });
+    if (scored) {
+      scoreGoal(s, att, def, 'att', taker, undefined);
+      return { attacking: 1 - attI, zone: 'mid', kind: 'kickoff' };
+    }
+    swingMomentum(s, def, 1);
+    return { attacking: 1 - attI, zone: 'def', carrier: keeper, kind: 'restart' };
+  }
+  const taker = att.five.includes(victim) ? victim : penaltyTaker(s, att);
+  emit(s, att, zone, { kind: 'freeKick', teamId: att.team.id, takerId: taker, phase: 'attSetPiece', defPhase: 'defSetPiece' });
+  return 'continue';
 }
 
 interface ChainStart {
@@ -218,11 +374,10 @@ function shoot(s: MatchState, att: Side, def: Side, shooter: string, zone: Zone,
   const attI = sideIndex(s, att.team.id);
   const defI = 1 - attI;
   if (outcome === 'goal') {
-    if (att.home) s.score.home++;
-    else s.score.away++;
-    emit(s, att, zone, { kind: 'goal', scorerId: shooter, assistId, teamId: att.team.id });
+    scoreGoal(s, att, def, zone, shooter, assistId);
     return { outcome, next: { attacking: defI, zone: 'mid', kind: 'kickoff' } };
   }
+  if (outcome === 'saved') swingMomentum(s, def, 1);
   // The walls keep the ball live: blocks, woodwork and parried saves can fall back to the attack.
   const reboundPm = outcome === 'blocked' ? 380 : outcome === 'woodwork' ? 450 : outcome === 'saved' ? 260 : 0;
   if (reboundPm && s.rng.chance(reboundPm)) return { outcome, next: 'continue' };
@@ -284,6 +439,20 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
       const dfn = avg2(s, def, defender, 'tackling', 'pace');
       const showboat = s.league.players[carrier].drive === 'showboat';
       const success = s.rng.chance(clamp(560 + (atk - dfn) * 4 + (showboat ? 40 : 0), 250, 860));
+      if (s.rng.chance(success ? FOUL_RATES.beaten : FOUL_RATES.won)) {
+        const next = foul(s, att, def, zone, carrier, defender);
+        if (next !== 'continue') return next;
+        if (!att.five.includes(carrier)) carrier = penaltyTaker(s, att);
+        // Free kick: in the attacking third the taker may go straight for goal.
+        if (zone === 'att' && s.rng.chance(550)) {
+          const shot = shoot(s, att, def, carrier, zone, -10, undefined);
+          if (shot.next !== 'continue') return shot.next;
+          carrier = playerAt(s, att, RECEIVERS_BY_ZONE.att);
+        }
+        assist = undefined;
+        bonus = 0;
+        continue;
+      }
       emit(s, att, zone, { kind: 'dribble', playerId: carrier, defenderId: defender, success });
       if (!success) return { attacking: defI, zone: MIRROR[zone], carrier: defender, kind: 'turnover' };
       assist = undefined;
@@ -310,6 +479,45 @@ function runChain(s: MatchState, start: ChainStart): ChainStart {
 export interface SoccerSimOptions {
   /** Players who can't play this match (injured, vanished, sealed out). */
   unavailable?: ReadonlySet<string>;
+  /** Knockout match: a draw goes to a penalty shootout. */
+  knockout?: boolean;
+}
+
+/** 5 kicks each, then sudden death; every player on the floor takes one before anyone goes twice. */
+function penaltyShootout(s: MatchState): { home: number; away: number; winnerId: string } {
+  const order = (side: Side) => {
+    const on = side.five.filter((id) => id);
+    const score = (id: string) => rating(s, side, id, 'finishing') + rating(s, side, id, 'composure');
+    return [...on].sort((a, b) => score(b) - score(a) || on.indexOf(a) - on.indexOf(b));
+  };
+  const takers = [order(s.sides[0]), order(s.sides[1])];
+  const goals = [0, 0];
+  const kicks: { teamId: string; takerId: string; scored: boolean }[] = [];
+  let decided = false;
+  for (let round = 0; round < 50 && !decided; round++) {
+    for (const i of [0, 1]) {
+      const att = s.sides[i];
+      const taker = takers[i][round % takers[i].length];
+      const scored = kickScores(s, att, s.sides[1 - i], taker, 720);
+      if (scored) goals[i]++;
+      kicks.push({ teamId: att.team.id, takerId: taker, scored });
+      if (round < 5) {
+        // Best of five: over as soon as one side can't catch up with the kicks it has left.
+        const homeLeft = 4 - round;
+        const awayLeft = i === 0 ? 5 - round : 4 - round;
+        if (goals[0] > goals[1] + awayLeft || goals[1] > goals[0] + homeLeft) {
+          decided = true;
+          break;
+        }
+      }
+    }
+    if (round >= 4 && goals[0] !== goals[1]) decided = true;
+  }
+  // 50 rounds level is practically impossible; the home side takes it so there is always a winner.
+  const winnerI = goals[1] > goals[0] ? 1 : 0;
+  const winnerId = s.sides[winnerI].team.id;
+  emit(s, s.sides[winnerI], undefined, { kind: 'shootout', kicks, winnerId, phase: 'attSetPiece', defPhase: 'defSetPiece' });
+  return { home: goals[0], away: goals[1], winnerId };
 }
 
 export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, seasonId = 1, opts: SoccerSimOptions = {}): SoccerResult {
@@ -320,7 +528,7 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
     const bench = team.squad.filter((id) => !five.includes(id) && !opts.unavailable?.has(id) && league.players[id]);
     const swing: Record<string, number> = {};
     for (const id of [...five, ...bench]) if (league.players[id].drive === 'spark') swing[id] = rng.range(-12, 12);
-    return { team, home, five, bench, swing };
+    return { team, home, five, bench, swing, fouls: 0, yellows: {}, short: null };
   };
   const s: MatchState = {
     rng,
@@ -331,6 +539,8 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
     second: 0,
     halfEnd: HALF_SECONDS + rng.int(3) * 60,
     stamina: {},
+    momentum: 0,
+    injuries: {},
     events: [],
   };
   const lineups = { home: [...s.sides[0].five], away: [...s.sides[1].five] };
@@ -339,12 +549,16 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
   for (const half of [1, 2] as const) {
     s.half = half;
     if (half === 2) {
+      for (const side of s.sides) side.fouls = 0;
       s.second = HALF_SECONDS;
       s.halfEnd = HALF_SECONDS * 2 + rng.int(3) * 60;
     }
     let next: ChainStart = { attacking: half === 1 ? 0 : 1, zone: 'mid', kind: 'kickoff' };
     while (s.second < s.halfEnd) {
       const before = s.second;
+      for (const side of s.sides) if (side.short && s.second >= side.short.until) endPowerPlay(s, side);
+      // Momentum fades a little every possession.
+      s.momentum -= Math.sign(s.momentum);
       next = runChain(s, next);
       drainStamina(s, s.second - before);
       rollingSubs(s);
@@ -353,5 +567,6 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
   }
   const winnerId = s.score.home > s.score.away ? game.homeId : s.score.away > s.score.home ? game.awayId : null;
   emit(s, s.sides[0], undefined, { kind: 'fullTime', winnerId, phase: 'attSetPiece', defPhase: 'defSetPiece' });
-  return { gameId: game.id, homeId: game.homeId, awayId: game.awayId, homeScore: s.score.home, awayScore: s.score.away, lineups, events: s.events };
+  const shootout = winnerId === null && opts.knockout ? penaltyShootout(s) : undefined;
+  return { gameId: game.id, homeId: game.homeId, awayId: game.awayId, homeScore: s.score.home, awayScore: s.score.away, lineups, shootout, injuries: s.injuries, events: s.events };
 }
