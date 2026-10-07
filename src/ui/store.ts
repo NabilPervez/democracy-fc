@@ -67,6 +67,10 @@ interface State {
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/** Democracy FC owns the picker and universe creation; the legacy app hands back to it (set by the Root). */
+let legacyExit: (() => void) | null = null;
+export const setLegacyExit = (fn: () => void) => (legacyExit = fn);
+
 export const useGame = create<State>((set, get) => ({
   view: 'loading',
   universes: [],
@@ -117,10 +121,18 @@ export const useGame = create<State>((set, get) => ({
   },
 
   showPicker: async () => {
+    if (legacyExit) {
+      set({ u: null, view: 'loading', watchingGameId: null, detail: null });
+      legacyExit();
+      return;
+    }
     set({ universes: await store.listUniverses(), view: 'picker', watchingGameId: null, detail: null });
   },
 
-  showCreate: (seed) => set({ view: 'create', pendingSeed: seed ?? null }),
+  showCreate: (seed) => {
+    if (legacyExit) return void get().showPicker();
+    set({ view: 'create', pendingSeed: seed ?? null });
+  },
   showIntro: () => set({ view: 'intro' }),
   finishIntro: () => set({ view: get().u ? 'app' : 'create' }),
 

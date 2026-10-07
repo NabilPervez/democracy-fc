@@ -23,7 +23,7 @@ export function soccerBoxScore(r: SoccerResult): Record<string, SoccerStatLine> 
   const line = (id: string) => (box[id] ??= emptySoccerLine());
   for (const id of [...r.lineups.home, ...r.lineups.away]) line(id).apps = 1;
   for (const e of r.events) {
-    if (e.kind === 'sub') line(e.inId).apps = 1;
+    if (e.kind === 'sub' && e.inId) line(e.inId).apps = 1;
     if (e.kind === 'shot') {
       line(e.playerId).shots++;
       if (e.outcome === 'goal' || e.outcome === 'saved') line(e.playerId).onTarget++;

@@ -79,6 +79,8 @@ function keyFor(e: SoccerEvent, ctx: SoccerNarrationContext): string | null {
       return e.count >= 5 ? 'teamFouls' : null;
     case 'possession':
       return null; // the transition line that follows says it better
+    case 'sub':
+      return e.inId ? 'sub' : 'sub.makeWay';
     case 'facilityEvent':
       return 'facilityEvent';
     default:

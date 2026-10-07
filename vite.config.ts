@@ -14,9 +14,9 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'icons/*.png', 'icons/*.svg'],
       manifest: {
         id: '/',
-        name: 'Blastball',
-        short_name: 'Blastball',
-        description: 'A strange sports league that plays itself. Watch, bet, vote and bend reality — free, offline, in your browser.',
+        name: 'Democracy FC — Vote Chaos',
+        short_name: 'Democracy FC',
+        description: 'A sealed soccer facility whose league plays itself. Watch, predict, and vote on how it is played — free, offline, in your browser.',
         lang: 'en',
         dir: 'ltr',
         start_url: '/?source=pwa',
@@ -45,10 +45,10 @@ export default defineConfig({
           icon('/icons/monochrome-512.png', '512x512', 'monochrome'),
         ],
         shortcuts: [
-          { name: 'Today', short_name: 'Today', description: "Today's games, news and your coins", url: '/?tab=today&source=shortcut', icons: [icon('/icons/shortcut-today.png', '96x96')] },
-          { name: 'Games', short_name: 'Games', description: 'Watch a game live', url: '/?tab=games&source=shortcut', icons: [icon('/icons/shortcut-games.png', '96x96')] },
-          { name: 'Vote', short_name: 'Vote', description: 'The current election', url: '/?tab=vote&source=shortcut', icons: [icon('/icons/shortcut-vote.png', '96x96')] },
-          { name: 'History', short_name: 'History', description: 'Timeline, champions and the Departed', url: '/?tab=history&source=shortcut', icons: [icon('/icons/shortcut-history.png', '96x96')] },
+          { name: 'Bulletin', short_name: 'Bulletin', description: 'The Director, your Matchday Ballot and your coins', url: '/?tab=bulletin&source=shortcut', icons: [icon('/icons/shortcut-today.png', '96x96')] },
+          { name: 'Matches', short_name: 'Matches', description: 'Watch a match live', url: '/?tab=matches&source=shortcut', icons: [icon('/icons/shortcut-games.png', '96x96')] },
+          { name: 'Vote', short_name: 'Vote', description: 'The current facility election', url: '/?tab=vote&source=shortcut', icons: [icon('/icons/shortcut-vote.png', '96x96')] },
+          { name: 'Archive', short_name: 'Archive', description: 'Seasons, the timeline and the Sub-Level Archive', url: '/?tab=archive&source=shortcut', icons: [icon('/icons/shortcut-history.png', '96x96')] },
         ],
         screenshots: [
           { src: '/screenshots/phone-today.png', sizes: '1170x2532', type: 'image/png', form_factor: 'narrow', label: 'Today: your coins, the next game and breaking news' },

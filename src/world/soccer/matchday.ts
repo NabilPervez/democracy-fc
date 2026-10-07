@@ -34,6 +34,9 @@ export interface BallotResult {
   /** Winning shares, percent. */
   tacticPct: number;
   captainPct: number;
+  /** The player voted for the winning tactic / captain (their own club only). */
+  youBackedTactic?: boolean;
+  youBackedCaptain?: boolean;
 }
 
 /** Extra matchday votes (beyond the free one) cost n² coins in total — cheaper than elections. */
@@ -114,7 +117,11 @@ export function resolveBallot(options: BallotOptions, fans: { tactic: number[]; 
   const captain = fans.captain.map((v, i) => v + (player?.captain[i] ?? 0));
   const t = argmax(tactic);
   const c = argmax(captain);
-  return { tactic: options.tactics[t], captainId: options.captains[c], tacticPct: pct(tactic, t), captainPct: pct(captain, c) };
+  return {
+    tactic: options.tactics[t], captainId: options.captains[c], tacticPct: pct(tactic, t), captainPct: pct(captain, c),
+    youBackedTactic: player ? player.tactic[t] > 0 : undefined,
+    youBackedCaptain: player ? player.captain[c] > 0 : undefined,
+  };
 }
 
 /** Public scouting: the opponent fan base's current tactic lean, in percent per option (§B7a). */

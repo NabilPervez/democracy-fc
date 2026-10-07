@@ -297,9 +297,12 @@ function removePlayer(s: MatchState, side: Side, id: string, red: boolean) {
     if (k) {
       side.five[0] = k;
       side.bench = side.bench.filter((x) => x !== k);
+      emit(s, side, undefined, { kind: 'sub', teamId: side.team.id, outId: id, inId: k, phase: 'attSetPiece', defPhase: 'defSetPiece' });
       const giveUp = side.five.findIndex((x, i) => i > 0 && x);
       if (red && giveUp > 0) {
+        // The keeper was sent off: the backup keeper replaced them, and this outfielder makes room.
         side.bench.push(side.five[giveUp]);
+        emit(s, side, undefined, { kind: 'sub', teamId: side.team.id, outId: side.five[giveUp], inId: '', phase: 'attSetPiece', defPhase: 'defSetPiece' });
         side.five[giveUp] = '';
         slot = giveUp;
       } else slot = -1;
@@ -308,7 +311,7 @@ function removePlayer(s: MatchState, side: Side, id: string, red: boolean) {
   if (slot < 0) return;
   if (red && !side.short) {
     side.short = { slot, until: s.second + (s.rules.powerPlaySeconds ?? 120) };
-    emit(s, side, undefined, { kind: 'powerPlay', teamId: side.team.id, untilSecond: side.short.until, phase: 'defSetPiece', defPhase: 'attSetPiece' });
+    emit(s, side, undefined, { kind: 'powerPlay', teamId: side.team.id, untilSecond: side.short.until, slot, phase: 'defSetPiece', defPhase: 'attSetPiece' });
     return;
   }
   const inId = bestReserve(s, side, slot);
@@ -785,6 +788,7 @@ export function simulateSoccer(league: SoccerLeague, game: SoccerFixture, season
     events: [],
   };
   const lineups = { home: [...s.sides[0].five], away: [...s.sides[1].five] };
+  emit(s, s.sides[0], undefined, { kind: 'lineups', home: lineups.home, away: lineups.away, phase: 'attSetPiece', defPhase: 'defSetPiece' });
   for (const f of opts.facilityEvents ?? []) emit(s, s.sides[0], undefined, { kind: 'facilityEvent', eventId: f.eventId, text: f.text, phase: 'attSetPiece', defPhase: 'defSetPiece' });
 
   // Home kicks off the first half, away the second.

@@ -1,311 +1,315 @@
 {
-  "kickoff": [
-    "{team} kick off. The glass hums.",
-    "Kick-off. {team} roll it back and the doors seal.",
-    "{team} get us going under the floodlights.",
-    "The countdown hits zero. {team} kick off."
-  ],
-  "possession": [
-    "{p} picks it up for {team}.",
-    "{team} have it now, {p} on the ball.",
-    "Loose ball, and {p} is first to it.",
-    "{p} steps in and takes it.",
-    "{team} win it back through {p}.",
-    "{p} collects and looks up."
-  ],
-  "pass": [
-    "{p} finds {p2}.",
-    "Short and simple from {p} to {p2}.",
-    "{p} lays it off to {p2}.",
-    "{p} moves it on to {p2}.",
-    "{p} keeps it ticking: {p2}.",
-    "Neat from {p}, into {p2}'s feet.",
-    "{p} plays it square to {p2}.",
-    "{p} slides it across to {p2}."
-  ],
-  "pass.through": [
-    "{p} threads it through to {p2}!",
-    "Straight down the middle from {p}, {p2} is in.",
-    "{p} splits the block with a pass to {p2}.",
-    "Through the gap: {p} to {p2}.",
-    "{p} picks the lock. {p2} is running at goal."
-  ],
-  "pass.around": [
-    "{p} goes wide to {p2}.",
-    "{p} switches it out to {p2} on the flank.",
-    "Around the block: {p} finds {p2} wide.",
-    "{p} spreads it to {p2}, hugging the glass.",
-    "{p} works it wide, {p2} carries it forward."
-  ],
-  "pass.fail": [
-    "{p} tries to find {p2}, but {d} reads it.",
-    "Intercepted. {d} steps across {p}'s pass.",
-    "{p} gives it away. {d} pounces.",
-    "Loose from {p}, and {d} cuts it out.",
-    "{d} gets a foot in front of {p}'s pass.",
-    "Too heavy from {p}. {d} mops up."
-  ],
-  "pass.bond": [
-    "{p} and {p2}: they've done this a hundred times in the Wing dorms.",
-    "{p} doesn't even look. {p2} is exactly where they always are.",
-    "That's the {p}–{p2} connection again.",
-    "{p} to {p2}, like a habit."
-  ],
-  "dribble.success": [
-    "{p} skips past {d}.",
-    "{p} drops a shoulder and {d} is gone.",
-    "{p} drives at {d} and goes straight through.",
-    "Lovely feet from {p}, {d} left on the floor.",
-    "{p} nutmegs {d}. The facility goes quiet.",
-    "{p} turns {d} inside out."
-  ],
-  "dribble.fail": [
-    "{p} runs into {d}. Ball won.",
-    "{d} stands firm and takes it off {p}.",
-    "{p} tries one touch too many. {d} has it.",
-    "Strong from {d}, who dispossesses {p}.",
-    "{p} goes for the gap; {d} closes it.",
-    "{d} times the tackle on {p} perfectly."
-  ],
-  "dribble.rivals": [
-    "{p} against {d} again. These two do not like each other.",
-    "Old rivals: {p} squares up to {d}.",
-    "{p} and {d} — the Wing has heard about this one."
-  ],
-  "longBall.success": [
-    "{p} goes long… {p2} brings it down!",
-    "Over the top from {p}, and {p2} is in behind.",
-    "{p} launches it. {p2} wins it in the air.",
-    "A diagonal from {p} finds {p2} at the far end."
-  ],
-  "longBall.fail": [
-    "{p} goes long, but it's cleared.",
-    "Hopeful from {p}. Headed away.",
-    "{p}'s long ball has too much on it.",
-    "{p} hits it long and the defence eats it up."
-  ],
-  "wallPass.success": [
-    "{p} plays it off the {wall} wall and runs onto the rebound!",
-    "One-two with the glass: {p} is through.",
-    "{p} uses the {wall} wall like a teammate.",
-    "Off the {wall} panel and back to {p}. Beautiful.",
-    "{p} bounces it off the glass and goes around {d}."
-  ],
-  "wallPass.fail": [
-    "{p} tries the wall pass, but the rebound runs loose.",
-    "Off the {wall} wall… and away from {p}.",
-    "The glass doesn't cooperate with {p} this time.",
-    "{p} aims for the {wall} wall and misjudges the angle."
-  ],
-  "shot.saved": [
-    "{p} shoots… saved by {k}!",
-    "{k} gets down to stop {p}.",
-    "{p} lets fly; {k} parries it.",
-    "Good effort from {p}, better save from {k}.",
-    "{k} beats away {p}'s shot.",
-    "{p} forces a save out of {k}."
-  ],
-  "shot.wide": [
-    "{p} shoots… wide.",
-    "{p} drags it past the post.",
-    "Off target from {p}.",
-    "{p} snatches at it and it flies wide.",
-    "{p} goes for goal; it smacks the back wall."
-  ],
-  "shot.blocked": [
-    "{p} shoots, but it's blocked by {d}!",
-    "{d} throws themselves in front of {p}'s shot.",
-    "Blocked! {d} gets in the way.",
-    "{p}'s strike cannons off {d}.",
-    "{d} charges it down."
-  ],
-  "shot.woodwork": [
-    "{p}… off the post! The facility goes silent.",
-    "Woodwork! {p} hits the bar.",
-    "{p} rattles the frame.",
-    "Off the post from {p}, and it rebounds off the back glass."
-  ],
-  "shot.wall": [
-    "{p} banks it off the {wall} wall toward goal…",
-    "{p} plays the angle: off the {wall} panel and goalward…",
-    "A banked effort from {p} off the {wall} glass…"
-  ],
-  "goal": [
-    "GOAL. {p}. {min}'.",
-    "GOAL! {p} finds the net for {team}.",
-    "{p} scores! {team} lead the way… or claw one back.",
-    "It's in! {p}, {min}'.",
-    "GOAL. {p} buries it.",
-    "{p} picks the corner. {k} has no chance.",
-    "GOAL for {team}! {p} with the finish.",
-    "{p} slots it home. {score}.",
-    "That's a goal. {p}. {score}.",
-    "{p} makes no mistake. GOAL."
-  ],
-  "goal.assist": [
-    "GOAL. {p}, set up by {p2}. {min}'.",
-    "{p2} with the pass, {p} with the finish. GOAL.",
-    "{p2} tees it up and {p} scores!",
-    "Great work from {p2}; {p} does the rest. GOAL.",
-    "GOAL! {p} from {p2}'s ball."
-  ],
-  "goal.selfish": [
-    "GOAL. {p}. {min}'. The Selfish one wanted that all to themselves.",
-    "{p} ignores two teammates and scores anyway. GOAL."
-  ],
-  "goal.predator": [
-    "GOAL. {p} was always going to be there. Predator.",
-    "{p} sniffs it out in the box. GOAL."
-  ],
-  "goal.catchphrase": [
-    "{p}, again: \"{phrase}\""
-  ],
-  "keeperRestart": [
-    "{k} gathers and rolls it out for {team}.",
-    "{k} holds on and restarts.",
-    "{k} collects and looks for a teammate.",
-    "{team} restart through {k}."
-  ],
-  "tackle": [
-    "Foul! {d} brings down {p}.",
-    "{d} clips {p}. Whistle.",
-    "{p} goes down under {d}'s challenge. Foul.",
-    "{d} is late on {p}.",
-    "Cynical from {d}, who stops {p} illegally."
-  ],
-  "teamFouls": [
-    "That's foul number {count} for {team} this half.",
-    "{team} are on {count} team fouls. One more and it's a Spot Kick.",
-    "{team}: {count} fouls. Every one from here is a Spot Kick."
-  ],
-  "freeKick": [
-    "Free kick to {team}. {p} stands over it.",
-    "{p} places the ball for the free kick.",
-    "{team} have a free kick, {p} to take.",
-    "Set piece for {team}."
-  ],
-  "spotKick": [
-    "Accumulated fouls: Spot Kick to {team}! No wall allowed.",
-    "That's the sixth-plus foul. {p} takes the Spot Kick.",
-    "Spot Kick! {p} from ten metres."
-  ],
-  "penalty.scored": [
-    "{p} scores from the spot.",
-    "{p} sends {k} the wrong way.",
-    "Cool as you like from {p}. In.",
-    "{p} smashes it home from the mark."
-  ],
-  "penalty.missed": [
-    "{k} saves {p}'s kick!",
-    "{p} misses from the spot!",
-    "{k} guesses right and keeps it out.",
-    "{p} hits it at {k}. Saved."
-  ],
-  "card.yellow": [
-    "Yellow card for {d}.",
-    "{d} goes into the book.",
-    "Booked: {d}.",
-    "{d} sees yellow."
-  ],
-  "card.red": [
-    "RED CARD. {d} is off.",
-    "{d} is sent off! {team} are down to four.",
-    "Straight red for {d}. The facility does not forgive."
-  ],
-  "powerPlay": [
-    "Power play: {team} play with four for two minutes.",
-    "{team} are short-handed. Two minutes of survival.",
-    "Four against five. {team} have to hold."
-  ],
-  "powerPlayEnd": [
-    "{team} are back to five.",
-    "The power play is over; {team} restore their numbers."
-  ],
-  "injury": [
-    "{p} is down and can't continue. Out for {count} match(es).",
-    "Bad news for {team}: {p} is hurt. {count} match(es) out.",
-    "{p} limps off. The medics say {count} match(es)."
-  ],
-  "sub": [
-    "{p2} on for {p}.",
-    "Change for {team}: {p} off, {p2} on.",
-    "Fresh legs: {p2} replaces {p}.",
-    "{p} heads to the bench; {p2} comes on."
-  ],
-  "halfTime": [
-    "Half-time. {score}.",
-    "The doors open for the interval. {score}.",
-    "Half-time in The Assembly: {score}."
-  ],
-  "fullTime.win": [
-    "Full-time. {team} win. {score}.",
-    "It's over: {team} take it, {score}.",
-    "Final whistle. {team} win {score}."
-  ],
-  "fullTime.draw": [
-    "Full-time. Honours even, {score}.",
-    "It ends level: {score}.",
-    "Final whistle. A draw, {score}."
-  ],
-  "shootout": [
-    "{team} win the shootout {count}.",
-    "Penalties decide it: {team} go through, {count}."
-  ],
-  "transition.counter": [
-    "{team} break at speed!",
-    "Counter-attack! {team} go straight forward.",
-    "{team} spring forward the moment they win it."
-  ],
-  "transition.breakaway": [
-    "⚡ TRANSITION: the counter-press fails — {team} are through!",
-    "⚡ {opp} press and miss. {team} have a 2-on-1!",
-    "⚡ {opp} overcommit and {team} are away."
-  ],
-  "transition.regained": [
-    "⚡ {opp} counter-press and win it straight back!",
-    "⚡ Instant regain from {opp}.",
-    "⚡ {team} lose it again immediately. {opp} pressed."
-  ],
-  "transition.secure": [
-    "{team} slow it down and reset.",
-    "{team} keep the ball and rebuild from the back."
-  ],
-  "blockChange.high": [
-    "{opp} push up into a High Block.",
-    "{opp} press high now."
-  ],
-  "blockChange.mid": [
-    "{opp} settle into a Mid Block.",
-    "{opp} drop to a medium press."
-  ],
-  "blockChange.low": [
-    "{opp} retreat into a Low Block. Protect the box.",
-    "{opp} park everyone in front of goal."
-  ],
-  "setPieceSetup": [
-    "{opp} set up {setup} for the free kick.",
-    "{opp} organise: {setup}.",
-    "Defensive setup from {opp}: {setup}."
-  ],
-  "scramble": [
-    "Loose ball off the glass! {p} wins the scramble.",
-    "It ricochets around the box; {p} comes away with it.",
-    "Scramble! {p} is quickest to the rebound.",
-    "Off the wall and loose: {p} gets there first.",
-    "Pinball in the box. {p} emerges with it."
-  ],
-  "signature": [
-    "★ {sig}! {p} {sigText}.",
-    "★ {p}'s signature: {sig}. {p} {sigText}.",
-    "★ {sig} from {p}!"
-  ],
-  "awakening": [
-    "✷ AWAKENING. Something has changed in {p}.",
-    "✷ {p} has Awakened. The facility takes note.",
-    "✷ The glass seems to bend around {p}. Awakened."
-  ],
-  "arenaShift": [
-    "The floor turns 90°. Everyone scrambles for the ball.",
-    "Director: Floor rotation in progress. Play on."
-  ]
+ "kickoff": [
+  "{team} kick off. The glass hums.",
+  "Kick-off. {team} roll it back and the doors seal.",
+  "{team} get us going under the floodlights.",
+  "The countdown hits zero. {team} kick off."
+ ],
+ "possession": [
+  "{p} picks it up for {team}.",
+  "{team} have it now, {p} on the ball.",
+  "Loose ball, and {p} is first to it.",
+  "{p} steps in and takes it.",
+  "{team} win it back through {p}.",
+  "{p} collects and looks up."
+ ],
+ "pass": [
+  "{p} finds {p2}.",
+  "Short and simple from {p} to {p2}.",
+  "{p} lays it off to {p2}.",
+  "{p} moves it on to {p2}.",
+  "{p} keeps it ticking: {p2}.",
+  "Neat from {p}, into {p2}'s feet.",
+  "{p} plays it square to {p2}.",
+  "{p} slides it across to {p2}."
+ ],
+ "pass.through": [
+  "{p} threads it through to {p2}!",
+  "Straight down the middle from {p}, {p2} is in.",
+  "{p} splits the block with a pass to {p2}.",
+  "Through the gap: {p} to {p2}.",
+  "{p} picks the lock. {p2} is running at goal."
+ ],
+ "pass.around": [
+  "{p} goes wide to {p2}.",
+  "{p} switches it out to {p2} on the flank.",
+  "Around the block: {p} finds {p2} wide.",
+  "{p} spreads it to {p2}, hugging the glass.",
+  "{p} works it wide, {p2} carries it forward."
+ ],
+ "pass.fail": [
+  "{p} tries to find {p2}, but {d} reads it.",
+  "Intercepted. {d} steps across {p}'s pass.",
+  "{p} gives it away. {d} pounces.",
+  "Loose from {p}, and {d} cuts it out.",
+  "{d} gets a foot in front of {p}'s pass.",
+  "Too heavy from {p}. {d} mops up."
+ ],
+ "pass.bond": [
+  "{p} and {p2}: they've done this a hundred times in the Wing dorms.",
+  "{p} doesn't even look. {p2} is exactly where they always are.",
+  "That's the {p}–{p2} connection again.",
+  "{p} to {p2}, like a habit."
+ ],
+ "dribble.success": [
+  "{p} skips past {d}.",
+  "{p} drops a shoulder and {d} is gone.",
+  "{p} drives at {d} and goes straight through.",
+  "Lovely feet from {p}, {d} left on the floor.",
+  "{p} nutmegs {d}. The facility goes quiet.",
+  "{p} turns {d} inside out."
+ ],
+ "dribble.fail": [
+  "{p} runs into {d}. Ball won.",
+  "{d} stands firm and takes it off {p}.",
+  "{p} tries one touch too many. {d} has it.",
+  "Strong from {d}, who dispossesses {p}.",
+  "{p} goes for the gap; {d} closes it.",
+  "{d} times the tackle on {p} perfectly."
+ ],
+ "dribble.rivals": [
+  "{p} against {d} again. These two do not like each other.",
+  "Old rivals: {p} squares up to {d}.",
+  "{p} and {d} — the Wing has heard about this one."
+ ],
+ "longBall.success": [
+  "{p} goes long… {p2} brings it down!",
+  "Over the top from {p}, and {p2} is in behind.",
+  "{p} launches it. {p2} wins it in the air.",
+  "A diagonal from {p} finds {p2} at the far end."
+ ],
+ "longBall.fail": [
+  "{p} goes long, but it's cleared.",
+  "Hopeful from {p}. Headed away.",
+  "{p}'s long ball has too much on it.",
+  "{p} hits it long and the defence eats it up."
+ ],
+ "wallPass.success": [
+  "{p} plays it off the {wall} wall and runs onto the rebound!",
+  "One-two with the glass: {p} is through.",
+  "{p} uses the {wall} wall like a teammate.",
+  "Off the {wall} panel and back to {p}. Beautiful.",
+  "{p} bounces it off the glass and goes around {d}."
+ ],
+ "wallPass.fail": [
+  "{p} tries the wall pass, but the rebound runs loose.",
+  "Off the {wall} wall… and away from {p}.",
+  "The glass doesn't cooperate with {p} this time.",
+  "{p} aims for the {wall} wall and misjudges the angle."
+ ],
+ "shot.saved": [
+  "{p} shoots… saved by {k}!",
+  "{k} gets down to stop {p}.",
+  "{p} lets fly; {k} parries it.",
+  "Good effort from {p}, better save from {k}.",
+  "{k} beats away {p}'s shot.",
+  "{p} forces a save out of {k}."
+ ],
+ "shot.wide": [
+  "{p} shoots… wide.",
+  "{p} drags it past the post.",
+  "Off target from {p}.",
+  "{p} snatches at it and it flies wide.",
+  "{p} goes for goal; it smacks the back wall."
+ ],
+ "shot.blocked": [
+  "{p} shoots, but it's blocked by {d}!",
+  "{d} throws themselves in front of {p}'s shot.",
+  "Blocked! {d} gets in the way.",
+  "{p}'s strike cannons off {d}.",
+  "{d} charges it down."
+ ],
+ "shot.woodwork": [
+  "{p}… off the post! The facility goes silent.",
+  "Woodwork! {p} hits the bar.",
+  "{p} rattles the frame.",
+  "Off the post from {p}, and it rebounds off the back glass."
+ ],
+ "shot.wall": [
+  "{p} banks it off the {wall} wall toward goal…",
+  "{p} plays the angle: off the {wall} panel and goalward…",
+  "A banked effort from {p} off the {wall} glass…"
+ ],
+ "goal": [
+  "GOAL. {p}. {min}'.",
+  "GOAL! {p} finds the net for {team}.",
+  "{p} scores! {team} lead the way… or claw one back.",
+  "It's in! {p}, {min}'.",
+  "GOAL. {p} buries it.",
+  "{p} picks the corner. {k} has no chance.",
+  "GOAL for {team}! {p} with the finish.",
+  "{p} slots it home. {score}.",
+  "That's a goal. {p}. {score}.",
+  "{p} makes no mistake. GOAL."
+ ],
+ "goal.assist": [
+  "GOAL. {p}, set up by {p2}. {min}'.",
+  "{p2} with the pass, {p} with the finish. GOAL.",
+  "{p2} tees it up and {p} scores!",
+  "Great work from {p2}; {p} does the rest. GOAL.",
+  "GOAL! {p} from {p2}'s ball."
+ ],
+ "goal.selfish": [
+  "GOAL. {p}. {min}'. The Selfish one wanted that all to themselves.",
+  "{p} ignores two teammates and scores anyway. GOAL."
+ ],
+ "goal.predator": [
+  "GOAL. {p} was always going to be there. Predator.",
+  "{p} sniffs it out in the box. GOAL."
+ ],
+ "goal.catchphrase": [
+  "{p}, again: \"{phrase}\""
+ ],
+ "keeperRestart": [
+  "{k} gathers and rolls it out for {team}.",
+  "{k} holds on and restarts.",
+  "{k} collects and looks for a teammate.",
+  "{team} restart through {k}."
+ ],
+ "tackle": [
+  "Foul! {d} brings down {p}.",
+  "{d} clips {p}. Whistle.",
+  "{p} goes down under {d}'s challenge. Foul.",
+  "{d} is late on {p}.",
+  "Cynical from {d}, who stops {p} illegally."
+ ],
+ "teamFouls": [
+  "That's foul number {count} for {team} this half.",
+  "{team} are on {count} team fouls. One more and it's a Spot Kick.",
+  "{team}: {count} fouls. Every one from here is a Spot Kick."
+ ],
+ "freeKick": [
+  "Free kick to {team}. {p} stands over it.",
+  "{p} places the ball for the free kick.",
+  "{team} have a free kick, {p} to take.",
+  "Set piece for {team}."
+ ],
+ "spotKick": [
+  "Accumulated fouls: Spot Kick to {team}! No wall allowed.",
+  "That's the sixth-plus foul. {p} takes the Spot Kick.",
+  "Spot Kick! {p} from ten metres."
+ ],
+ "penalty.scored": [
+  "{p} scores from the spot.",
+  "{p} sends {k} the wrong way.",
+  "Cool as you like from {p}. In.",
+  "{p} smashes it home from the mark."
+ ],
+ "penalty.missed": [
+  "{k} saves {p}'s kick!",
+  "{p} misses from the spot!",
+  "{k} guesses right and keeps it out.",
+  "{p} hits it at {k}. Saved."
+ ],
+ "card.yellow": [
+  "Yellow card for {d}.",
+  "{d} goes into the book.",
+  "Booked: {d}.",
+  "{d} sees yellow."
+ ],
+ "card.red": [
+  "RED CARD. {d} is off.",
+  "{d} is sent off! {team} are down to four.",
+  "Straight red for {d}. The facility does not forgive."
+ ],
+ "powerPlay": [
+  "Power play: {team} play with four for two minutes.",
+  "{team} are short-handed. Two minutes of survival.",
+  "Four against five. {team} have to hold."
+ ],
+ "powerPlayEnd": [
+  "{team} are back to five.",
+  "The power play is over; {team} restore their numbers."
+ ],
+ "injury": [
+  "{p} is down and can't continue. Out for {count} match(es).",
+  "Bad news for {team}: {p} is hurt. {count} match(es) out.",
+  "{p} limps off. The medics say {count} match(es)."
+ ],
+ "sub": [
+  "{p2} on for {p}.",
+  "Change for {team}: {p} off, {p2} on.",
+  "Fresh legs: {p2} replaces {p}.",
+  "{p} heads to the bench; {p2} comes on."
+ ],
+ "halfTime": [
+  "Half-time. {score}.",
+  "The doors open for the interval. {score}.",
+  "Half-time in The Assembly: {score}."
+ ],
+ "fullTime.win": [
+  "Full-time. {team} win. {score}.",
+  "It's over: {team} take it, {score}.",
+  "Final whistle. {team} win {score}."
+ ],
+ "fullTime.draw": [
+  "Full-time. Honours even, {score}.",
+  "It ends level: {score}.",
+  "Final whistle. A draw, {score}."
+ ],
+ "shootout": [
+  "{team} win the shootout {count}.",
+  "Penalties decide it: {team} go through, {count}."
+ ],
+ "transition.counter": [
+  "{team} break at speed!",
+  "Counter-attack! {team} go straight forward.",
+  "{team} spring forward the moment they win it."
+ ],
+ "transition.breakaway": [
+  "⚡ TRANSITION: the counter-press fails — {team} are through!",
+  "⚡ {opp} press and miss. {team} have a 2-on-1!",
+  "⚡ {opp} overcommit and {team} are away."
+ ],
+ "transition.regained": [
+  "⚡ {opp} counter-press and win it straight back!",
+  "⚡ Instant regain from {opp}.",
+  "⚡ {team} lose it again immediately. {opp} pressed."
+ ],
+ "transition.secure": [
+  "{team} slow it down and reset.",
+  "{team} keep the ball and rebuild from the back."
+ ],
+ "blockChange.high": [
+  "{opp} push up into a High Block.",
+  "{opp} press high now."
+ ],
+ "blockChange.mid": [
+  "{opp} settle into a Mid Block.",
+  "{opp} drop to a medium press."
+ ],
+ "blockChange.low": [
+  "{opp} retreat into a Low Block. Protect the box.",
+  "{opp} park everyone in front of goal."
+ ],
+ "setPieceSetup": [
+  "{opp} set up {setup} for the free kick.",
+  "{opp} organise: {setup}.",
+  "Defensive setup from {opp}: {setup}."
+ ],
+ "scramble": [
+  "Loose ball off the glass! {p} wins the scramble.",
+  "It ricochets around the box; {p} comes away with it.",
+  "Scramble! {p} is quickest to the rebound.",
+  "Off the wall and loose: {p} gets there first.",
+  "Pinball in the box. {p} emerges with it."
+ ],
+ "signature": [
+  "★ {sig}! {p} {sigText}.",
+  "★ {p}'s signature: {sig}. {p} {sigText}.",
+  "★ {sig} from {p}!"
+ ],
+ "awakening": [
+  "✷ AWAKENING. Something has changed in {p}.",
+  "✷ {p} has Awakened. The facility takes note.",
+  "✷ The glass seems to bend around {p}. Awakened."
+ ],
+ "arenaShift": [
+  "The floor turns 90°. Everyone scrambles for the ball.",
+  "Director: Floor rotation in progress. Play on."
+ ],
+ "sub.makeWay": [
+  "{p} makes way so the backup keeper can come on.",
+  "{p} steps off: someone has to go in goal."
+ ]
 }

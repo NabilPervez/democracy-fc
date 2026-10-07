@@ -16,7 +16,7 @@ const all = (rs: SoccerResult[]) => rs.flatMap((r) => r.events);
 const count = (rs: SoccerResult[], f: (e: SoccerEvent) => boolean) => all(rs).filter(f).length;
 
 const ALLOWED_KINDS = new Set([
-  'kickoff', 'possession', 'pass', 'dribble', 'longBall', 'shot', 'goal', 'keeperRestart', 'tackle', 'teamFouls', 'freeKick', 'spotKick',
+  'lineups', 'kickoff', 'possession', 'pass', 'dribble', 'longBall', 'shot', 'goal', 'keeperRestart', 'tackle', 'teamFouls', 'freeKick', 'spotKick',
   'penalty', 'card', 'powerPlay', 'powerPlayEnd', 'injury', 'shootout', 'sub', 'halfTime', 'fullTime', 'transition', 'blockChange',
   'setPieceSetup', 'wallPass', 'scramble', 'signature', 'awakening', 'arenaShift',
 ]);

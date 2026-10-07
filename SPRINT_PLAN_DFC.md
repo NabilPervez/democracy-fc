@@ -86,12 +86,12 @@ Universe runs soccer seasons end to end (league/schedule/results/stats through t
 - [x] Each tactic moves its target stat the right way over 500 matches; counters give a measurable edge.
 - [x] Skipping the ballot never blocks a match.
 
-## S7 — UI conversion — ⬜
+## S7 — UI conversion — ✅ (Lighthouse not run — see log)
 Relabel tabs (Bulletin / Matches / Facility / Vote / Archive), Live Pitch View + Play Log, minute clock, Key Moments, W/D/L table, helps/hurts + coalition bars, club picker, PlayerCard drives, onboarding copy, "Predictions" copy everywhere.
 
 **DoD**
-- [ ] New player creates a universe, watches a match in Key Moments, makes a prediction and votes in < 3 min at 380px.
-- [ ] Lighthouse PWA checks still pass.
+- [x] New player creates a universe, watches a match in Key Moments, makes a prediction and votes in < 3 min at 380px.
+- [ ] Lighthouse PWA checks still pass. *(Not run in this environment — build still emits manifest + service worker; run Lighthouse before launch, tracked in S8.)*
 
 ## S8 — Polish & content fill — ⬜
 ~300 templates, fan-base headlines, Director voice pass, extra prediction markets, IP checklist §B12.
@@ -186,3 +186,13 @@ Winner-assumption checklist (from grep) and what happened to each:
 - Election votes now cost 2n² (PRD: elections have a higher base than matchday votes' n²).
 - `world/soccer/recap.ts`: recap cause lines (tactic vote + possession + counters, Director events, arena, double-goal rules, burden).
 - `tests/matchday.test.ts` (8 tests). 301 tests pass, lint + typecheck clean. **S6b done.**
+
+### S7 — 2026-10-07
+- **Shell:** `src/ui/Root.tsx` starts Democracy FC; legacy Blastball saves open in the old app, which is now **lazy-loaded** (its own 175 KB chunk). The Democracy FC picker lists both kinds; universe creation is soccer-only (PRD §C6). Legacy "switch universe" hands back to the new picker.
+- **Storage/worker:** rows tagged `sport`; `storage/soccerDb.ts` (save / persist command / append event / play-by-play); legacy loader refuses soccer rows; `.league` export carries `sport` and imports soccer saves; worker exposes `runSoccerCommand` / `replaySoccerMatch`.
+- **Screens** (`src/ui/soccer/`): Bulletin (Director card, **Matchday Ballot**: 3 tactics with blurbs, counters, own-fan lean bars and opponent scouting; 3 captains with Drive + Fan Favorite; **3-way Prediction**; play/sim controls; election card; feed), Matches (fixtures by day) + **MatchView** (score/clock/momentum, **Live Pitch View**, attacking/defending phase chips, speeds Live / 2× / 5× / **Key Moments** / Instant, **phase-tagged filterable Play Log with tap-to-scrub**, recap with cause lines and per-team **phase bars**), Facility (**W/D/L/GD/Pts** table with the Ejection line, top scorers, club pages with squad + club switching confirm dialog, **PlayerCard** with star groups incl. Keeping, Drive, Signature, mods, bonds/rivals, Awakened/returned frames, catchphrase), Vote (**helps/hurts badges**, vote share bars, coalition lines, quadratic costs), Archive (seasons, Sub-Level Archive, timeline, Awakenings), Picker, Create (club picker required), 4-screen Onboarding.
+- `src/ui/pitch/pitchState.ts`: pure `pitchStateAt(events, i, ctx)` (tokens, ball, lit third, block band, power-play empty slot, bank lines, overlays); engine now emits `lineups` at kickoff and explicit `powerPlay.slot` / keeper-swap `sub` events so the pitch never guesses.
+- Rebrand: title, meta, manifest name + shortcuts (Bulletin / Matches / Vote / Archive), package name. `og:url` still points at the old Netlify site until a Democracy FC deploy exists.
+- **Browser check (380×800):** onboarding → create (picked Ironvale Sentinels) → ballot votes → prediction → watched the match (Key Moments, then Instant) → recap → bought a facility vote → club + player pages. No console errors. Key Moments ≈ 69 moments/match; sped to 0.8 s each (~55 s) so the whole first session fits in ~2½ minutes.
+- **Bugs found in the browser and fixed:** Captain's Bonus paid to a fan who backed a different captain (options were re-derived after the match) → now decided at kickoff (`youBackedCaptain`), with a regression test; recap said "Your X vote" when the fans overruled the player → "The fans' X call"; captain votes weren't shown; rank showed before any match; raw arena id on club page; stacked pitch tokens.
+- Tests: `tests/pitchState.test.ts` (5), `tests/soccer.storage.test.ts` (2), new matchday regression. 309 tests pass, lint + typecheck + production build clean. Main chunk 596 KB (warning) — code-splitting and load-time check are S8.

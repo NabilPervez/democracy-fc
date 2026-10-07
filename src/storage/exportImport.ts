@@ -2,6 +2,8 @@ import { ENGINE_VERSION } from '../engine/baseball/game';
 import { SAVE_VERSION, type UniverseState } from '../world/universe';
 import { db, type BlastballDB, type GameRow, type SnapshotRow, type WorldEventRow } from './db';
 import { InvalidSaveError, migrateSave } from './migrate';
+import { SOCCER_SAVE_VERSION, type SoccerUniverse } from '../world/soccer/universe';
+import { SOCCER_ENGINE_VERSION } from '../engine/soccer/game';
 
 /** `.league` file: gzip-compressed JSON. */
 export const LEAGUE_FORMAT = 'blastball.league';
@@ -13,7 +15,9 @@ export interface LeagueFile {
   saveVersion: number;
   engineVersion: number;
   exportedAt: number;
-  state: UniverseState;
+  /** Which game the save plays (PRD §C6: included in metadata). Missing = baseball. */
+  sport?: 'baseball' | 'soccer';
+  state: UniverseState | SoccerUniverse;
   snapshots: Omit<SnapshotRow, 'id' | 'universeId'>[];
   worldEvents: Omit<WorldEventRow, 'id' | 'universeId'>[];
   games: Omit<GameRow, 'universeId'>[];
@@ -38,11 +42,13 @@ export async function exportUniverse(id: string, opts: { includePlayByPlay: bool
     delete copy.id;
     return copy;
   };
+  const soccer = row.state.sport === 'soccer';
   const file: LeagueFile = {
     format: LEAGUE_FORMAT,
     formatVersion: LEAGUE_FORMAT_VERSION,
-    saveVersion: SAVE_VERSION,
-    engineVersion: ENGINE_VERSION,
+    saveVersion: soccer ? SOCCER_SAVE_VERSION : SAVE_VERSION,
+    engineVersion: soccer ? SOCCER_ENGINE_VERSION : ENGINE_VERSION,
+    sport: soccer ? 'soccer' : 'baseball',
     exportedAt: now,
     state: row.state,
     snapshots: (await d.snapshots.where('universeId').equals(id).toArray()).map(strip) as LeagueFile['snapshots'],
@@ -68,6 +74,12 @@ export async function readLeagueFile(blob: Blob): Promise<LeagueFile> {
   if (!Array.isArray(f.snapshots) || !Array.isArray(f.worldEvents) || !Array.isArray(f.games)) {
     throw new InvalidSaveError('This .league file is incomplete.');
   }
+  if ((f.state as { sport?: string } | undefined)?.sport === 'soccer') {
+    const st = f.state as SoccerUniverse;
+    if (typeof st.saveVersion !== 'number' || st.saveVersion > SOCCER_SAVE_VERSION) throw new InvalidSaveError('This Democracy FC save is from a newer version. Update the app first.');
+    if (!st.id || !st.settings || !st.league || !st.schedule) throw new InvalidSaveError('This .league file is incomplete.');
+    return f as LeagueFile;
+  }
   const state = migrateSave(f.state);
   const snapshots = f.snapshots.map((s) => ({ ...s, state: migrateSave(s.state) }));
   return { ...(f as LeagueFile), state, snapshots };
@@ -81,12 +93,12 @@ export async function importLeague(blob: Blob, d: BlastballDB = db, newId: () =>
   const file = await readLeagueFile(blob);
   const exists = !!(await d.universes.get(file.state.id));
   const id = exists ? newId() : file.state.id;
-  const rename = (s: UniverseState): UniverseState =>
+  const rename = <S extends UniverseState | SoccerUniverse>(s: S): S =>
     exists ? { ...s, id, settings: { ...s.settings, name: `${s.settings.name} (copy)` } } : s;
   const state = rename(file.state);
 
   await d.transaction('rw', [d.universes, d.snapshots, d.games, d.worldEvents], async () => {
-    await d.universes.put({ id, name: state.settings.name, seed: state.settings.seed, season: state.season, currentDay: state.currentDay, updatedAt: now, state });
+    await d.universes.put({ id, sport: state.sport === 'soccer' ? 'soccer' : 'baseball', name: state.settings.name, seed: state.settings.seed, season: state.season, currentDay: state.currentDay, updatedAt: now, state });
     await d.snapshots.bulkAdd(file.snapshots.map((s) => ({ ...s, universeId: id, state: rename(s.state) }) as SnapshotRow));
     await d.worldEvents.bulkAdd(file.worldEvents.map((e) => ({ ...e, universeId: id })));
     await d.games.bulkPut(file.games.map((g) => ({ ...g, universeId: id })));

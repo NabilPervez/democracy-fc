@@ -647,10 +647,8 @@ function afterBallot(s: SoccerUniverse, summary: SoccerMatchSummary, box: Record
     const lines: string[] = [`The fans have spoken: ${tactic.toUpperCase()} (${mine.tacticPct}%). Captain: ${name}.`];
     const streak = captaincy[mine.captainId]?.streak ?? 0;
     if (streak === 5 || streak === 9) lines.push(`${name} has been elected captain ${streak} times in a row. Fan Favorite.`);
-    // Captain's Bonus: the player backed the captain, and the captain delivered.
-    const myVotes = s.ballots[summary.gameId];
-    const opts = matchBallot(s, summary.gameId, s.favoriteClubId).options;
-    const backed = myVotes && myVotes.captain[opts.captains.indexOf(mine.captainId)] > 0;
+    // Captain's Bonus: the player backed the captain (decided at kickoff), and the captain delivered.
+    const backed = !!mine.youBackedCaptain;
     const line = box[mine.captainId];
     const pos = s.league.players[mine.captainId]?.position;
     const delivered = !!line && (line.goals > 0 || line.assists > 0 || ((pos === 'K' || pos === 'A') && cleanSheet(summary, s.favoriteClubId)));

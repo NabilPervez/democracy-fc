@@ -95,6 +95,7 @@ interface SEventBase {
 export type ShotOutcome = 'goal' | 'saved' | 'wide' | 'blocked' | 'woodwork';
 
 export type SoccerEvent = SEventBase & (
+  | { kind: 'lineups'; home: string[]; away: string[] }
   | { kind: 'kickoff'; teamId: string }
   | { kind: 'possession'; teamId: string; playerId: string; zone: Zone }
   | { kind: 'pass'; from: string; to: string; success: boolean; advanced: boolean; interceptorId?: string; bond?: boolean }
@@ -109,7 +110,7 @@ export type SoccerEvent = SEventBase & (
   | { kind: 'freeKick' | 'spotKick'; teamId: string; takerId: string }
   | { kind: 'penalty'; takerId: string; keeperId: string; scored: boolean; spot: 'penalty' | 'spotKick' }
   | { kind: 'card'; playerId: string; teamId: string; color: 'yellow' | 'red' }
-  | { kind: 'powerPlay'; teamId: string; untilSecond: number }
+  | { kind: 'powerPlay'; teamId: string; untilSecond: number; /** The emptied slot (0 K … 4 P). */ slot: number }
   | { kind: 'powerPlayEnd'; teamId: string; inId: string | null }
   | { kind: 'injury'; playerId: string; teamId: string; matches: number }
   | { kind: 'shootout'; kicks: { teamId: string; takerId: string; scored: boolean }[]; winnerId: string }

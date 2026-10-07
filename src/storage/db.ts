@@ -4,6 +4,7 @@ import { isSeasonOver, PBP_DAYS_KEPT, type CommandResult, type UniverseState, ty
 import { migrateSave } from './migrate';
 import { perkValue } from '../world/persona';
 import { gamesToPrune, snapshotsToPrune, type SnapshotRef } from './retention';
+import type { SoccerUniverse } from '../world/soccer/universe';
 
 export interface UniverseRow {
   id: string;
@@ -12,14 +13,16 @@ export interface UniverseRow {
   season: number;
   currentDay: number;
   updatedAt: number;
+  /** Which game this save plays (missing on Blastball saves = baseball). */
+  sport?: 'baseball' | 'soccer';
   /** Current state — the atomic save. Snapshots are the history. */
-  state: UniverseState;
+  state: UniverseState | SoccerUniverse;
 }
 
 export interface SnapshotRow extends SnapshotRef {
   universeId: string;
   createdAt: number;
-  state: UniverseState;
+  state: UniverseState | SoccerUniverse;
 }
 
 export interface GameRow {
@@ -30,6 +33,7 @@ export interface GameRow {
   pinned: boolean;
   /** Engine that simmed it; missing on rows saved before Sprint 12 (engine v2 or older). */
   engineVersion?: number;
+  /** Baseball GameEvents or soccer SoccerEvents, by the universe's sport. */
   events: GameEvent[];
 }
 
@@ -69,6 +73,7 @@ export const db = new BlastballDB();
 
 const rowFor = (state: UniverseState, now: number): UniverseRow => ({
   id: state.id,
+  sport: 'baseball',
   name: state.settings.name,
   seed: state.settings.seed,
   season: state.season,
@@ -82,7 +87,7 @@ export type UniverseMeta = Omit<UniverseRow, 'state'>;
 export async function listUniverses(d = db): Promise<UniverseMeta[]> {
   const rows = await d.universes.orderBy('updatedAt').reverse().toArray();
   return rows.map((row) => {
-    const meta: Partial<UniverseRow> = { ...row };
+    const meta: Partial<UniverseRow> = { ...row, sport: row.sport ?? (row.state.sport === 'soccer' ? 'soccer' : 'baseball') };
     delete meta.state;
     return meta as UniverseMeta;
   });
@@ -90,6 +95,7 @@ export async function listUniverses(d = db): Promise<UniverseMeta[]> {
 
 export async function loadUniverse(id: string, d = db): Promise<UniverseState | null> {
   const row = await d.universes.get(id);
+  if (row && (row.state as { sport?: string }).sport === 'soccer') throw new Error('That is a Democracy FC save; open it from the Democracy FC picker.');
   return row ? migrateSave(row.state) : null;
 }
 

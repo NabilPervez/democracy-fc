@@ -125,6 +125,25 @@ describe('Matchday Ballot (S6b)', () => {
     }
     expect(paid).toBe(CAPTAIN_BONUS);
   });
+
+  it('no Captain’s Bonus for a fan who backed a different captain', () => {
+    let ran = 0;
+    for (let i = 0; i < 30; i++) {
+      let u: SoccerUniverse = createSoccerWorld('u', settings({ seed: `cap-${i}` }), null, 0);
+      const g = u.schedule.find((x) => x.day === 1 && (x.homeId === u.favoriteClubId || x.awayId === u.favoriteClubId))!;
+      const b = matchBallot(u, g.id, u.favoriteClubId);
+      const fansPick = b.fans.captain.indexOf(Math.max(...b.fans.captain));
+      const other = (fansPick + 1) % 3;
+      // One vote on a captain the fans won't elect.
+      if (b.fans.captain[fansPick] - b.fans.captain[other] < 2) continue;
+      u = reduceSoccer(u, { type: 'ballotVote', gameId: g.id, question: 'captain', option: other, count: 1 });
+      const after = runSoccerCommand(u, { type: 'playGame', gameId: g.id }).state;
+      expect(after.results[g.id].ballot![u.favoriteClubId].youBackedCaptain).toBe(false);
+      expect(after.ledger.some((l) => l.reason.startsWith("Captain's Bonus"))).toBe(false);
+      ran++;
+    }
+    expect(ran).toBeGreaterThan(5);
+  });
 });
 
 describe('recap cause lines', () => {
@@ -135,7 +154,7 @@ describe('recap cause lines', () => {
     expect(mine.length).toBeGreaterThan(5);
     for (const r of mine) {
       const lines = recapLines(state, r);
-      expect(lines[0]).toMatch(/^Your .+ vote produced \d+% possession.*You (won|drew|lost)\.$/);
+      expect(lines[0]).toMatch(/^(Your .+ vote|The fans' .+ call) produced \d+% possession.*You (won|drew|lost)\.$/);
     }
   });
 });
