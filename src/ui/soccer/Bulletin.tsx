@@ -78,6 +78,8 @@ export function Bulletin() {
         </div>
       )}
 
+      <Picks />
+
       <h2>Today</h2>
       <div className="row" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {game && open && (
@@ -160,6 +162,41 @@ function Rumours() {
       ) : (
         <p className="muted small" style={{ margin: 0 }}>The corridors are quiet about tomorrow.</p>
       )}
+    </div>
+  );
+}
+
+/** Your backed and faded players, and what they've earned. */
+function Picks() {
+  const u = useAssembly((s) => s.u)!;
+  const { showDetail } = useAssembly();
+  const last = [...u.ledger].reverse().find((l) => l.reason.startsWith('Picks:'));
+  const ids = [...u.picks.back.map((id) => ['back', id] as const), ...u.picks.fade.map((id) => ['fade', id] as const)].filter(([, id]) => u.league.players[id]);
+  return (
+    <div className="card" style={{ padding: 14, marginTop: 12 }}>
+      <p className="eyebrow">Your picks · {u.picksLifetime} coins earned</p>
+      {ids.length ? (
+        <ul className="feed" style={{ margin: 0 }}>
+          {ids.map(([kind, id]) => {
+            const p = u.league.players[id];
+            const line = u.seasonStats[id];
+            return (
+              <li key={id} className="feed-item">
+                <button className="link-btn" onClick={() => showDetail({ kind: 'player', id })}>
+                  {p.name}
+                </button>
+                <span className={`pick-tag ${kind}`}>{kind === 'back' ? 'BACKED' : 'FADED'}</span>{' '}
+                <span className="muted small">
+                  {clubOf(u, p.teamId)?.name} · {line ? `${line.goals}G ${line.assists}A in ${line.apps}` : 'no matches yet'}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="muted small" style={{ margin: 0 }}>Back players to earn when they score or keep clean sheets; fade players to earn when they flop. Open any player card in Facility.</p>
+      )}
+      {last && <p className="small muted" style={{ margin: '8px 0 0' }}>Last payout: {last.reason.replace('Picks: ', '')}</p>}
     </div>
   );
 }

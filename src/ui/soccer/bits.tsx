@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { Phase, SoccerTeam } from '../../engine/soccer/types';
 import { useAssembly } from './store';
 
@@ -103,4 +103,35 @@ export function useNow(ms = 15_000): number {
     return () => clearInterval(t);
   }, [ms]);
   return now;
+}
+
+/**
+ * A tap-or-hover explanation. The trigger is a real button (keyboard and screen-reader friendly);
+ * the bubble is announced via aria-describedby and closes on Escape or a second tap.
+ */
+export function Tip({ label, children, text }: { label: string; children?: React.ReactNode; text: string }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  return (
+    <span className="tip-wrap" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button
+        type="button"
+        className="tip-btn"
+        aria-label={`${label}: what is this?`}
+        aria-expanded={open}
+        aria-describedby={open ? id : undefined}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+        onBlur={() => setOpen(false)}
+      >
+        {children ?? label}
+        <span className="tip-q" aria-hidden="true">?</span>
+      </button>
+      {open && (
+        <span role="tooltip" id={id} className="tip-bubble">
+          {text}
+        </span>
+      )}
+    </span>
+  );
 }

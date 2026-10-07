@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { simulateSoccer } from '../src/engine/soccer/game';
 import { generateSoccerLeague } from '../src/world/soccer/generate';
-import { pitchStateAt, type PitchContext } from '../src/ui/pitch/pitchState';
+import { FLOOR, pitchStateAt, type PitchContext } from '../src/ui/pitch/pitchState';
 
 const league = generateSoccerLeague({ seed: 'pitch', teamCount: 8 });
 const matches = Array.from({ length: 30 }, (_, i) => {
@@ -22,14 +22,16 @@ describe('pitchStateAt (S7)', () => {
       r.events.forEach((_, i) => {
         const f = pitchStateAt(r.events, i, ctx);
         expect(f.ball.x).toBeGreaterThanOrEqual(0);
-        expect(f.ball.x).toBeLessThanOrEqual(100);
+        expect(f.ball.x).toBeLessThanOrEqual(FLOOR.w);
         expect(f.ball.y).toBeGreaterThanOrEqual(0);
-        expect(f.ball.y).toBeLessThanOrEqual(100);
+        expect(f.ball.y).toBeLessThanOrEqual(FLOOR.h);
         expect(f.tokens.length).toBe(10);
         expect(f.tokens.filter((t) => t.carrier).length).toBeLessThanOrEqual(1);
         for (const t of f.tokens) {
           expect(t.x).toBeGreaterThanOrEqual(0);
-          expect(t.x).toBeLessThanOrEqual(100);
+          expect(t.x).toBeLessThanOrEqual(FLOOR.w);
+          expect(t.y).toBeGreaterThanOrEqual(0);
+          expect(t.y).toBeLessThanOrEqual(FLOOR.h);
         }
       });
     }
@@ -40,8 +42,8 @@ describe('pitchStateAt (S7)', () => {
     const f = pitchStateAt(r.events, 20, ctx);
     const keeper = f.tokens.find((t) => t.teamId === ctx.viewClubId && t.slot === 'K')!;
     const other = f.tokens.find((t) => t.teamId !== ctx.viewClubId && t.slot === 'K')!;
-    expect(keeper.x).toBeLessThan(50);
-    expect(other.x).toBeGreaterThan(50);
+    expect(keeper.x).toBeLessThan(FLOOR.w / 2);
+    expect(other.x).toBeGreaterThan(FLOOR.w / 2);
   });
 
   it('power plays show an empty dashed slot until the side is back to five', () => {
@@ -68,6 +70,18 @@ describe('pitchStateAt (S7)', () => {
     expect(f.tokens.some((t) => t.id === e.inId)).toBe(true);
     expect(f.tokens.some((t) => t.id === e.outId)).toBe(false);
     const banked = matches.flatMap(({ r, ctx }) => r.events.map((ev, j) => ({ ev, j, r, ctx }))).find(({ ev }) => ev.kind === 'shot' && ev.wall)!;
-    expect(pitchStateAt(banked.r.events, banked.j, banked.ctx).bank).toMatch(/left|right/);
+    expect(pitchStateAt(banked.r.events, banked.j, banked.ctx).bank).toHaveLength(3);
+  });
+
+  it('scoreboard data: fouls reset at half-time, possessions count up, chips describe both teams', () => {
+    const { r, ctx } = matches[2];
+    const end = pitchStateAt(r.events, r.events.length - 1, ctx);
+    const ht = r.events.findIndex((e) => e.half === 2);
+    expect(pitchStateAt(r.events, ht, ctx).fouls).toEqual({ home: 0, away: 0 });
+    expect(end.possession).toBeGreaterThan(50);
+    expect(end.clock).toMatch(/^\d\d:\d\d$/);
+    const mid = pitchStateAt(r.events, 40, ctx);
+    expect(mid.chips[0].teamId).toBe(ctx.viewClubId);
+    expect(mid.chips.every((c) => c.sub.length > 0)).toBe(true);
   });
 });

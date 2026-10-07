@@ -4,11 +4,9 @@
  */
 
 export const DAY_LENGTHS = [
-  { minutes: 15, label: '15 minutes' },
-  { minutes: 30, label: '30 minutes' },
-  { minutes: 60, label: '1 hour' },
-  { minutes: 240, label: '4 hours' },
-  { minutes: 1440, label: '1 real day' },
+  { minutes: 10, label: '10 minutes' },
+  { minutes: 20, label: '20 minutes' },
+  { minutes: 40, label: '40 minutes' },
 ] as const;
 
 export type DayLengthMinutes = (typeof DAY_LENGTHS)[number]['minutes'];

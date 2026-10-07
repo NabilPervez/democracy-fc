@@ -98,13 +98,13 @@ describe('Democracy FC world (S5)', () => {
     expect(betError(u, later.id, later.homeId, 1)).toMatch(/today/);
     const end = runSoccerCommand(fresh(), { type: 'simDays', count: regularDays(u) }).state;
     expect(end.phase).toBe('playoffs');
-    const semi = end.playoffs!.semis[0];
+    const semi = end.playoffs!.rounds[0][0];
     expect(betError(end, semi, DRAW_PICK, 1)).toMatch(/Knockout/);
   });
 
   it('knockout matches never end level', () => {
     const { state } = runSoccerCommand(fresh({ seed: 'ko' }), { type: 'simToSeasonEnd' });
-    for (const id of [...state.playoffs!.semis, state.playoffs!.final!]) {
+    for (const id of state.playoffs!.rounds.flat()) {
       const r = state.results[id];
       expect(r.knockout).toBe(true);
       expect(r.shootout?.winnerId ?? matchWinner(r)).toBeTruthy();
@@ -203,5 +203,46 @@ describe('Echo Goal (S8)', () => {
       const points = goals.reduce((n, e) => n + (e.kind === 'goal' ? e.value ?? 1 : 0), 0);
       expect(r.homeScore + r.awayScore).toBe(points);
     }
+  });
+});
+
+describe('season length, bracket and picks (S10)', () => {
+  it('season length sets the matchdays: short, standard, long', async () => {
+    const { regularDays } = await import('../src/world/soccer/universe');
+    for (const [len, days] of [['short', 11], ['standard', 22], ['long', 33]] as const) {
+      const u = fresh({ seasonLength: len });
+      expect(regularDays(u)).toBe(days);
+      expect(Math.max(...u.schedule.map((g) => g.day))).toBe(days);
+    }
+  });
+
+  it('an 8-club bracket runs quarterfinals, semifinals and a final, seeded 1v8', () => {
+    const { state } = runSoccerCommand(fresh({ seed: 'bracket8', playoffTeams: 8, seasonLength: 'short' }), { type: 'simToSeasonEnd' });
+    const p = state.playoffs!;
+    expect(p.rounds.map((r) => r.length)).toEqual([4, 2, 1]);
+    expect(p.seeds).toHaveLength(8);
+    const qf1 = state.results[p.rounds[0][0]];
+    expect([qf1.homeId, qf1.awayId]).toEqual([p.seeds[0], p.seeds[7]]);
+    const final = state.results[p.rounds[2][0]];
+    expect(p.championId === final.homeId || p.championId === final.awayId).toBe(true);
+    expect(state.archive[0].championId).toBe(p.championId);
+  });
+
+  it('backed and faded players pay out from the match box score', async () => {
+    const { pickError, pickPayout, BACK_SLOTS, PICK_RATES } = await import('../src/world/soccer/universe');
+    let u = fresh({ seed: 'picks' });
+    const club = u.league.teams.find((t) => t.id === u.favoriteClubId)!;
+    const opp = u.league.teams.find((t) => t.id !== u.favoriteClubId)!;
+    for (const id of club.squad.slice(1, 1 + BACK_SLOTS)) u = reduceSoccer(u, { type: 'pickSet', playerId: id, kind: 'back' });
+    expect(u.picks.back).toHaveLength(BACK_SLOTS);
+    expect(pickError(u, club.squad[4], 'back')).toMatch(/at most/);
+    u = reduceSoccer(u, { type: 'pickSet', playerId: opp.squad[4], kind: 'fade' });
+    expect(pickPayout('back', { apps: 1, goals: 2, assists: 1, shots: 3, onTarget: 2, saves: 0, conceded: 0, cleanSheets: 0, tackles: 0 }, false).amount).toBe(2 * PICK_RATES.goal + PICK_RATES.assist);
+    expect(pickPayout('fade', { apps: 1, goals: 0, assists: 0, shots: 1, onTarget: 0, saves: 0, conceded: 0, cleanSheets: 0, tackles: 0 }, false).amount).toBe(PICK_RATES.fadeBlank);
+    const { state } = runSoccerCommand(u, { type: 'simDays', count: 6 });
+    expect(state.picksLifetime).toBeGreaterThan(0);
+    expect(state.ledger.some((l) => l.reason.startsWith('Picks:'))).toBe(true);
+    // Unpick.
+    expect(reduceSoccer(state, { type: 'pickSet', playerId: opp.squad[4], kind: null }).picks.fade).toHaveLength(0);
   });
 });

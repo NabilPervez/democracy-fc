@@ -3,7 +3,7 @@ import { exportUniverse, importLeague, leagueFileName } from '../../storage/expo
 import { DAY_LENGTHS, formatDuration, msUntilNextDay } from '../../world/clock';
 import { PERSONAS, type PersonaId } from '../../world/soccer/persona';
 import { generateSoccerLeague } from '../../world/soccer/generate';
-import { DEFAULT_DAY_MINUTES, SOCCER_LEAGUE_SIZES, type SoccerSettings } from '../../world/soccer/universe';
+import { DEFAULT_DAY_MINUTES, GAME_LENGTHS, PLAYOFF_SIZES, roundsFor, SEASON_LENGTHS, SOCCER_LEAGUE_SIZES, type SeasonLength, type SoccerSettings } from '../../world/soccer/universe';
 import type { Chaos } from '../../world/soccer/weird';
 import { Bulletin } from './Bulletin';
 import { Coins, Crest, ErrorBanner, useNow } from './bits';
@@ -256,7 +256,10 @@ function Create() {
   const [chaos, setChaos] = useState<Chaos>('normal');
   const [club, setClub] = useState<number | null>(null);
   const [persona, setPersona] = useState<PersonaId | null>(null);
-  const [living, setLiving] = useState(false);
+  const [living, setLiving] = useState(true);
+  const [gameLength, setGameLength] = useState<number>(DEFAULT_DAY_MINUTES);
+  const [seasonLength, setSeasonLength] = useState<SeasonLength>('standard');
+  const [playoffTeams, setPlayoffTeams] = useState<4 | 8>(4);
   const league = useMemo(() => generateSoccerLeague({ seed, name, teamCount: size }), [seed, name, size]);
   return (
     <div className="solo dfc">
@@ -269,7 +272,7 @@ function Create() {
         onSubmit={(e) => {
           e.preventDefault();
           if (club === null) return;
-          void create({ name: name.trim() || 'The Assembly', seed, leagueSize: size, chaos, timeMode: living ? 'living' : 'manual', dayLengthMinutes: DEFAULT_DAY_MINUTES }, club, persona);
+          void create({ name: name.trim() || 'The Assembly', seed, leagueSize: size, chaos, timeMode: living ? 'living' : 'manual', dayLengthMinutes: gameLength, seasonLength, playoffTeams }, club, persona);
         }}
       >
         <label>
@@ -301,9 +304,35 @@ function Create() {
           <button type="button" className="chip" aria-pressed={!living} onClick={() => setLiving(false)} title="Days pass when you press play">
             Manual
           </button>
-          <button type="button" className="chip" aria-pressed={living} onClick={() => setLiving(true)} title="A matchday every real hour, even while you're away">
-            Living (1 day / hour)
+          <button type="button" className="chip" aria-pressed={living} onClick={() => setLiving(true)} title="Matchdays pass in real time, even while you're away">
+            Living
           </button>
+        </fieldset>
+        {living && (
+          <fieldset className="choice-row">
+            <legend>Game length (real time per matchday)</legend>
+            {GAME_LENGTHS.map((m) => (
+              <button type="button" key={m} className="chip" aria-pressed={gameLength === m} onClick={() => setGameLength(m)}>
+                {m} min
+              </button>
+            ))}
+          </fieldset>
+        )}
+        <fieldset className="choice-row">
+          <legend>Games per season</legend>
+          {SEASON_LENGTHS.map((l) => (
+            <button type="button" key={l.id} className="chip" aria-pressed={seasonLength === l.id} onClick={() => setSeasonLength(l.id)}>
+              {l.label} · {roundsFor(size, l.id)} games
+            </button>
+          ))}
+        </fieldset>
+        <fieldset className="choice-row">
+          <legend>Playoff bracket</legend>
+          {PLAYOFF_SIZES.filter((n) => n <= size).map((n) => (
+            <button type="button" key={n} className="chip" aria-pressed={playoffTeams === n} onClick={() => setPlayoffTeams(n)}>
+              Top {n}
+            </button>
+          ))}
         </fieldset>
         <fieldset>
           <legend>Your fan persona (optional)</legend>

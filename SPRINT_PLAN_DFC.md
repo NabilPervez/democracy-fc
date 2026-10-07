@@ -234,3 +234,17 @@ Direction from the owner (2026-10-07): Democracy FC is a new product; legacy bas
 - Awakening trigger halved (12‰) so the ~1–3 per season spread across the season instead of arriving in week one.
 - Digest de-duplicates against news the fan already saw.
 - New tests: `tests/persona.digest.test.ts`, `tests/clock.test.ts`.
+
+## S10 — Owner feedback: game length, season length, bracket, picks, tooltips, arena view — ✅
+**DoD**
+- [x] Living time: matchday length 10 / 20 / 40 minutes, **default 40** (Settings and creation).
+- [x] Games per season: Short (one round-robin) / Standard (two) / Long (three) — e.g. 11 / 22 / 33 for 12 clubs.
+- [x] Playoffs: top 4 or top 8, a seeded championship bracket (1v8, 4v5, 2v7, 3v6 → semis → final), shown in Facility with rounds, scores, shootouts and the champion.
+- [x] Back and fade players: back up to 3 (paid per goal, assist, keeper clean sheet and saves), fade up to 2 (paid when they blank, or a keeper concedes 4+). Buttons on every player card, a Picks card on the Bulletin, BACKED/FADED tags on squads, payouts in the ledger.
+- [x] Tooltips explain every star group (which hidden ratings feed it and what it does), Drives, season stats, table columns and pick payouts. Tap or hover; keyboard and screen-reader accessible.
+- [x] Arena view rebuilt to the "Assembly Arena View" mockup: title bar, scoreboard with clock and team fouls, 400×240 walled floor with DEF/MID/ATT thirds, D-boxes and goal mouths, lettered tokens with surnames, block band with label, bank and shot lines, transition flash ring, Director border, Lights Out darkening and Wall Shift, Spot Kick mark, banner; two phase chips with live sub-lines; ◀ Play/Pause ▶ Restart transport and possession counter; legend; play log grouped by possession with Open play / Transition / Set piece / Shot / Goal / Foul / Facility / Signature tags, tap-to-jump.
+- [x] Tests, lint, typecheck, build green; verified in the browser at phone width.
+
+### S10 — 2026-10-07
+- Bug found in the browser and fixed: auto-scrolling the play log scrolled the whole page, pushing the arena off screen; only the log box scrolls now.
+- New tests: season lengths, 8-club bracket seeding and flow, pick payouts; pitch tests updated for the 400×240 floor plus fouls / possessions / chips.

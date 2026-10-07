@@ -50,10 +50,23 @@ export interface SoccerSettings {
   leagueSize: (typeof SOCCER_LEAGUE_SIZES)[number];
   chaos: Chaos;
   timeMode: 'manual' | 'living';
+  /** Living time: real minutes per matchday (10 / 20 / 40). */
   dayLengthMinutes: number;
+  /** Matches per club in the league phase: short (one round-robin), standard (two), long (three). */
+  seasonLength?: SeasonLength;
+  /** Clubs in the playoff bracket (4 or 8). */
+  playoffTeams?: 4 | 8;
 }
 
-export const DEFAULT_DAY_MINUTES = 60;
+export type SeasonLength = 'short' | 'standard' | 'long';
+export const SEASON_LENGTHS: { id: SeasonLength; label: string; cycles: number }[] = [
+  { id: 'short', label: 'Short', cycles: 1 },
+  { id: 'standard', label: 'Standard', cycles: 2 },
+  { id: 'long', label: 'Long', cycles: 3 },
+];
+export const GAME_LENGTHS = [10, 20, 40] as const;
+export const DEFAULT_DAY_MINUTES = 40;
+export const PLAYOFF_SIZES = [4, 8] as const;
 
 export interface SoccerMatchSummary {
   gameId: string;
@@ -124,8 +137,10 @@ export interface SoccerSeasonRecord {
 }
 
 export interface SoccerPlayoffs {
-  semis: string[];
-  final: string | null;
+  /** Seeded clubs, best first. */
+  seeds: string[];
+  /** Bracket rounds of match ids (quarterfinals → semifinals → final). Adjacent winners meet next. */
+  rounds: string[][];
   championId: string | null;
 }
 
@@ -185,7 +200,16 @@ export interface SoccerUniverse {
   clock: Clock | null;
   /** The fan's persona (§B2). */
   persona: PersonaId | null;
+  /** Players the fan backs (paid when they deliver) or fades (paid when they don't). */
+  picks: { back: string[]; fade: string[] };
+  /** Coins earned from picks, ever. */
+  picksLifetime: number;
 }
+
+export const BACK_SLOTS = 3;
+export const FADE_SLOTS = 2;
+/** Coins per thing a backed player does, and per flop of a faded one. */
+export const PICK_RATES = { goal: 12, assist: 6, cleanSheet: 10, save: 1, fadeBlank: 5, fadeLeaky: 4 };
 
 export interface ActiveRule {
   proposalId: string;
@@ -213,6 +237,7 @@ export type SoccerWorldEvent =
   | { type: 'votesBought'; electionId: number; proposal: number; count: number }
   | { type: 'ballotVote'; gameId: string; question: BallotQuestion; option: number; count: number }
   | { type: 'personaChosen'; persona: PersonaId }
+  | { type: 'pickSet'; playerId: string; kind: 'back' | 'fade' | null }
   | { type: 'timeSettingsChanged'; timeMode: 'manual' | 'living'; dayLengthMinutes: number; nowMs: number }
   | { type: 'clockSet'; clock: Clock }
   | { type: 'dayEnded'; day: number };
@@ -247,8 +272,10 @@ const FACTION_NAMES: Record<string, { name: string; ideology: string }> = {
   casuals: { name: 'The Casuals', ideology: 'More goals, please.' },
 };
 
-export const roundsFor = (clubs: number) => (clubs - 1) * 2;
-export const regularDays = (s: SoccerUniverse) => roundsFor(s.league.teams.length);
+/** League-phase matchdays: every club plays every other `cycles` times. */
+export const roundsFor = (clubs: number, length: SeasonLength = 'standard') => (clubs - 1) * (SEASON_LENGTHS.find((l) => l.id === length)?.cycles ?? 2);
+export const regularDays = (s: SoccerUniverse) => roundsFor(s.league.teams.length, s.settings.seasonLength);
+export const playoffSize = (s: SoccerUniverse) => Math.min(s.settings.playoffTeams ?? 4, s.league.teams.length) as 4 | 8;
 
 export function createSoccerUniverse(id: string, settings: SoccerSettings, favoriteClubId: string | null, now: number): SoccerUniverse {
   const league = generateSoccerLeague({ seed: settings.seed, name: settings.name, teamCount: settings.leagueSize });
@@ -263,7 +290,7 @@ export function createSoccerUniverse(id: string, settings: SoccerSettings, favor
     league,
     season: 1,
     phase: 'regular',
-    schedule: generateSchedule(league.teams, roundsFor(league.teams.length)),
+    schedule: generateSchedule(league.teams, roundsFor(league.teams.length, settings.seasonLength)),
     results: {},
     started: [],
     currentDay: 1,
@@ -296,6 +323,8 @@ export function createSoccerUniverse(id: string, settings: SoccerSettings, favor
     captaincy: {},
     clock: settings.timeMode === 'living' ? { anchorMs: now, anchorDay: 1 } : null,
     persona: null,
+    picks: { back: [], fade: [] },
+    picksLifetime: 0,
   };
 }
 
@@ -312,7 +341,7 @@ export const clubName = (s: SoccerUniverse, id: string) => (id === DRAW_PICK ? '
   const t = clubOf(s, id);
   return t ? `${t.city} ${t.name}` : id;
 })());
-export const isKnockout = (s: SoccerUniverse, gameId: string) => !!s.playoffs && (s.playoffs.semis.includes(gameId) || s.playoffs.final === gameId);
+export const isKnockout = (s: SoccerUniverse, gameId: string) => !!s.playoffs && s.playoffs.rounds.some((r) => r.includes(gameId));
 export const regularResults = (s: SoccerUniverse) => Object.values(s.results).filter((r) => !r.knockout);
 export const soccerStandings = (s: SoccerUniverse) => computeStandings(s.league.teams, regularResults(s));
 export const fixturesOn = (s: SoccerUniverse, day: number) => s.schedule.filter((g) => g.day === day);
@@ -635,6 +664,7 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
         };
       }
       next = afterBallot(next, summary, box);
+      next = payPicks(next, summary, box);
       const winner = summary.shootout?.winnerId ?? matchWinner(summary);
       if (winner && winner === state.favoriteClubId) {
         next = { ...next, coins: next.coins + FAVORITE_WIN_BONUS, ledger: withLedger(next, FAVORITE_WIN_BONUS, `Your ${clubOf(next, winner)?.name} won`) };
@@ -712,6 +742,15 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
     case 'personaChosen':
       return { ...state, persona: event.persona };
 
+    case 'pickSet': {
+      if (event.kind && pickError(state, event.playerId, event.kind)) return state;
+      const back = state.picks.back.filter((id) => id !== event.playerId);
+      const fade = state.picks.fade.filter((id) => id !== event.playerId);
+      if (event.kind === 'back') back.push(event.playerId);
+      if (event.kind === 'fade') fade.push(event.playerId);
+      return { ...state, picks: { back, fade } };
+    }
+
     case 'timeSettingsChanged': {
       const settings = { ...state.settings, timeMode: event.timeMode, dayLengthMinutes: event.dayLengthMinutes };
       return { ...state, settings, clock: event.timeMode === 'living' ? { anchorMs: event.nowMs, anchorDay: state.dayCount } : null };
@@ -741,6 +780,44 @@ export function reduceSoccer(state: SoccerUniverse, event: SoccerWorldEvent): So
       return next;
     }
   }
+}
+
+export function pickError(s: SoccerUniverse, playerId: string, kind: 'back' | 'fade'): string | null {
+  if (!s.league.players[playerId]) return 'No such player.';
+  const list = kind === 'back' ? s.picks.back : s.picks.fade;
+  if (list.includes(playerId)) return null;
+  if (list.length >= (kind === 'back' ? BACK_SLOTS : FADE_SLOTS)) return `You can ${kind} at most ${kind === 'back' ? BACK_SLOTS : FADE_SLOTS} players. Drop one first.`;
+  return null;
+}
+
+/** What a pick earned in one match (0 if they didn't play). Pure, for the UI and the reducer. */
+export function pickPayout(kind: 'back' | 'fade', line: SoccerStatLine | undefined, keeper: boolean): { amount: number; why: string } {
+  if (!line || !line.apps) return { amount: 0, why: '' };
+  const R = PICK_RATES;
+  if (kind === 'back') {
+    const amount = line.goals * R.goal + line.assists * R.assist + (keeper ? line.cleanSheets * R.cleanSheet + line.saves * R.save : 0);
+    const bits = [line.goals && `${line.goals}G`, line.assists && `${line.assists}A`, keeper && line.cleanSheets && 'clean sheet', keeper && line.saves && `${line.saves} saves`].filter(Boolean);
+    return { amount, why: bits.join(', ') };
+  }
+  if (keeper) return line.conceded >= 4 ? { amount: R.fadeLeaky * (line.conceded - 3), why: `conceded ${line.conceded}` } : { amount: 0, why: '' };
+  return line.goals + line.assists === 0 ? { amount: R.fadeBlank, why: 'blanked' } : { amount: 0, why: '' };
+}
+
+function payPicks(s: SoccerUniverse, summary: SoccerMatchSummary, box: Record<string, SoccerStatLine>): SoccerUniverse {
+  const lines: string[] = [];
+  let total = 0;
+  for (const kind of ['back', 'fade'] as const) {
+    for (const id of s.picks[kind]) {
+      const p = s.league.players[id];
+      if (!p || (p.teamId !== summary.homeId && p.teamId !== summary.awayId)) continue;
+      const { amount, why } = pickPayout(kind, box[id], p.position === 'K');
+      if (!amount) continue;
+      total += amount;
+      lines.push(`${p.name} ${kind === 'back' ? '' : '(faded) '}${why} +${amount}`);
+    }
+  }
+  if (!total) return s;
+  return { ...s, coins: s.coins + total, picksLifetime: s.picksLifetime + total, ledger: withLedger(s, total, `Picks: ${lines.join('; ')}`) };
 }
 
 /** Ballot follow-up: the announcement, captaincy streaks, Captain's Bonus and Captain's Burden. */
@@ -943,20 +1020,24 @@ function returnFromSubLevels(s: SoccerUniverse, playerId: string): SoccerUnivers
 // ---------------------------------------------------------------------------
 // Playoffs (knockout: shootouts, never draws) and the offseason
 
+/** Bracket order so seeds 1 and 2 can only meet in the final: 1v8, 4v5, 2v7, 3v6 (1v4, 2v3 for four). */
+const BRACKET: Record<4 | 8, [number, number][]> = {
+  4: [[0, 3], [1, 2]],
+  8: [[0, 7], [3, 4], [1, 6], [2, 5]],
+};
+export const ROUND_NAMES: Record<number, string> = { 4: 'Quarterfinals', 2: 'Semifinals', 1: 'Final' };
+
 function beginPlayoffs(s: SoccerUniverse): SoccerUniverse {
-  const table = soccerStandings(s);
-  const [a, b, c, d] = table.map((r) => r.teamId);
+  const size = playoffSize(s);
+  const seeds = soccerStandings(s).slice(0, size).map((r) => r.teamId);
   const day = s.currentDay;
-  const semis: SoccerFixture[] = [
-    { id: `s${s.season}sf1`, day, homeId: a, awayId: d },
-    { id: `s${s.season}sf2`, day, homeId: b, awayId: c },
-  ];
+  const first: SoccerFixture[] = BRACKET[size].map(([a, b], i) => ({ id: `s${s.season}r1m${i + 1}`, day, homeId: seeds[a], awayId: seeds[b] }));
   return {
     ...s,
     phase: 'playoffs',
-    schedule: [...s.schedule, ...semis],
-    playoffs: { semis: semis.map((g) => g.id), final: null, championId: null },
-    news: withNews(s, [{ text: `Director: The league phase is complete. The top four enter the Knockout. Draws are no longer permitted.`, director: true }]),
+    schedule: [...s.schedule, ...first],
+    playoffs: { seeds, rounds: [first.map((g) => g.id)], championId: null },
+    news: withNews(s, [{ text: `Director: The league phase is complete. The top ${size} enter the Knockout. Draws are no longer permitted.`, director: true }]),
   };
 }
 
@@ -964,15 +1045,17 @@ const knockoutWinner = (r: SoccerMatchSummary) => r.shootout?.winnerId ?? matchW
 
 function continuePlayoffs(s: SoccerUniverse): SoccerUniverse {
   const p = s.playoffs!;
-  if (!p.final) {
-    const [sf1, sf2] = p.semis.map((id) => s.results[id]);
-    if (!sf1 || !sf2) return s;
-    const final: SoccerFixture = { id: `s${s.season}final`, day: s.currentDay, homeId: knockoutWinner(sf1), awayId: knockoutWinner(sf2) };
-    return { ...s, schedule: [...s.schedule, final], playoffs: { ...p, final: final.id } };
+  const last = p.rounds[p.rounds.length - 1];
+  const results = last.map((id) => s.results[id]);
+  if (results.some((r) => !r)) return s;
+  const winners = results.map((r) => knockoutWinner(r!));
+  if (winners.length > 1) {
+    const n = p.rounds.length + 1;
+    const next: SoccerFixture[] = [];
+    for (let i = 0; i < winners.length; i += 2) next.push({ id: `s${s.season}r${n}m${i / 2 + 1}`, day: s.currentDay, homeId: winners[i], awayId: winners[i + 1] });
+    return { ...s, schedule: [...s.schedule, ...next], playoffs: { ...p, rounds: [...p.rounds, next.map((g) => g.id)] } };
   }
-  const f = s.results[p.final];
-  if (!f) return s;
-  const championId = knockoutWinner(f);
+  const championId = winners[0];
   const text = `The ${clubName(s, championId)} are champions of The Assembly, season ${s.season}.`;
   return endSeason({ ...s, playoffs: { ...p, championId }, news: withNews(s, [text]), timeline: withTimeline(s, 'champion', text) });
 }
@@ -1032,7 +1115,7 @@ function newSeason(s: SoccerUniverse): SoccerUniverse {
     season,
     phase: 'regular',
     engineVersion: SOCCER_ENGINE_VERSION,
-    schedule: generateSchedule(s.league.teams, roundsFor(s.league.teams.length)),
+    schedule: generateSchedule(s.league.teams, roundsFor(s.league.teams.length, s.settings.seasonLength)),
     results: {},
     started: [],
     currentDay: 1,
