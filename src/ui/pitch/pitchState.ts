@@ -24,14 +24,14 @@ const ROLE_SLOT: Record<Role, SoccerPosition> = { K: 'K', A: 'A', W1: 'W', W2: '
 
 type Shape = 'buildup' | 'progress' | 'attack' | 'high' | 'mid' | 'low' | 'kickoff';
 
-/** Shapes for a team attacking left → right (the mockup's positions). */
+/** Shapes for a team attacking left → right (the mockup's positions; block shapes stagger A and P off the centre line so they don't sit on the attackers). */
 const SHAPE: Record<Shape, Record<Role, [number, number]>> = {
   buildup: { K: [28, 120], A: [75, 150], W1: [150, 48], W2: [150, 192], P: [235, 120] },
   progress: { K: [30, 120], A: [120, 120], W1: [215, 52], W2: [205, 188], P: [285, 118] },
   attack: { K: [32, 120], A: [150, 120], W1: [285, 55], W2: [280, 185], P: [335, 115] },
-  high: { K: [35, 120], A: [195, 120], W1: [295, 72], W2: [295, 168], P: [340, 120] },
-  mid: { K: [25, 120], A: [105, 120], W1: [185, 75], W2: [185, 165], P: [245, 120] },
-  low: { K: [20, 120], A: [55, 120], W1: [85, 80], W2: [85, 160], P: [140, 120] },
+  high: { K: [35, 120], A: [195, 102], W1: [295, 72], W2: [295, 168], P: [340, 140] },
+  mid: { K: [25, 120], A: [105, 102], W1: [185, 75], W2: [185, 165], P: [245, 140] },
+  low: { K: [20, 120], A: [55, 102], W1: [85, 80], W2: [85, 160], P: [140, 140] },
   kickoff: { K: [25, 120], A: [100, 120], W1: [160, 60], W2: [160, 180], P: [193, 120] },
 };
 

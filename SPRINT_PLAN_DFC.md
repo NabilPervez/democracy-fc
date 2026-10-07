@@ -248,3 +248,9 @@ Direction from the owner (2026-10-07): Democracy FC is a new product; legacy bas
 ### S10 — 2026-10-07
 - Bug found in the browser and fixed: auto-scrolling the play log scrolled the whole page, pushing the arena off screen; only the log box scrolls now.
 - New tests: season lengths, 8-club bracket seeding and flow, pick payouts; pitch tests updated for the 400×240 floor plus fouls / possessions / chips.
+
+## S11 — Light mode, jewel tones — ✅
+- Light theme: warm off-white base (#F7F5F0), white surfaces, dark ink text.
+- Saturated, bright jewel tones: **emerald** #0E9F6E (primary, buttons, goals), **topaz gold** #F5B800 (your club on the pitch, brand), **sapphire** #2563EB (the Director / facility), **amethyst** #7C3AED (the opponent), **ruby** #E11D48 (fouls, warnings), amber for set pieces.
+- Arena redrawn for light: pale pitch-green floor, slate walls, dark ink lines and labels; token letters switch ink per team for contrast; defensive shapes stagger A/P so tokens don't stack.
+- `color-scheme: light`, theme colour, manifest, splash screens, share image and install screenshots regenerated.

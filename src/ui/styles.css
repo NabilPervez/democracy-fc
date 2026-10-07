@@ -1,20 +1,22 @@
 :root {
-  --base: #06110b;
-  --surface: #0c1d13;
-  --surface-2: #13291b;
-  --line: #1f3a29;
-  --primary: #f2c230;
-  --secondary: #3ddc84;
-  --accent: #2e8bff;
-  --text: #f2f2f5;
-  --muted: #9db3a5;
-  --good: #3ddc97;
-  --bad: #ff6b6b;
+  --base: #f7f5f0;
+  --surface: #ffffff;
+  --surface-2: #f1eee6;
+  --line: #ddd7c9;
+  --primary: #0e9f6e;
+  --on-primary: #ffffff;
+  --gold: #f5b800;
+  --secondary: #7c3aed;
+  --accent: #2563eb;
+  --text: #1b1f2a;
+  --muted: #5f6675;
+  --good: #0e9f6e;
+  --bad: #e11d48;
   --radius: 14px;
   --display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
   --body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --nav-h: 64px;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
@@ -47,7 +49,7 @@ h2 { font-size: 1.2rem; color: var(--muted); margin: 28px 0 12px; }
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
   display: flex; justify-content: space-around;
   height: calc(var(--nav-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
-  background: rgba(12, 29, 19, 0.92); backdrop-filter: blur(12px); border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(12px); border-top: 1px solid var(--line);
 }
 .brand { display: none; }
 .nav-item {
@@ -80,14 +82,14 @@ h2 { font-size: 1.2rem; color: var(--muted); margin: 28px 0 12px; }
   min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--line);
   background: var(--surface-2); font-weight: 600;
 }
-.btn.primary { background: var(--primary); border-color: var(--primary); color: #1a0d02; margin-top: 16px; width: 100%; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); margin-top: 16px; width: 100%; }
 @media (min-width: 600px) { .btn.primary { width: auto; } }
 .btn:hover { filter: brightness(1.1); }
 .chip {
   min-width: 44px; min-height: 40px; padding: 0 12px; border-radius: 999px;
   border: 1px solid var(--line); background: var(--surface); font-weight: 600;
 }
-.chip[aria-pressed='true'] { background: var(--primary); border-color: var(--primary); color: #1a0d02; }
+.chip[aria-pressed='true'] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .chip:disabled { opacity: 0.35; cursor: default; }
 .link-btn { background: none; border: 0; padding: 8px 0; color: var(--accent); min-height: 44px; }
 
@@ -130,8 +132,8 @@ h2 { font-size: 1.2rem; color: var(--muted); margin: 28px 0 12px; }
 .feed-item { padding: 8px 12px; border-left: 3px solid transparent; color: var(--muted); font-size: 0.92rem; }
 .feed-item.k-atBat, .feed-item.k-hit, .feed-item.k-out, .feed-item.k-strikeout, .feed-item.k-walk { color: var(--text); }
 .feed-item.k-halfStart, .feed-item.k-gameStart { color: var(--accent); font-weight: 600; margin-top: 8px; }
-.feed-item.big { color: var(--text); background: rgba(242, 194, 48, 0.1); border-left-color: var(--primary); font-weight: 600; }
-.feed-item.k-gameEnd { color: var(--secondary); border-left-color: var(--secondary); background: rgba(61, 220, 132, 0.08); }
+.feed-item.big { color: var(--text); background: rgba(14, 159, 110, 0.08); border-left-color: var(--primary); font-weight: 600; }
+.feed-item.k-gameEnd { color: var(--secondary); border-left-color: var(--secondary); background: rgba(14, 159, 110, 0.08); }
 
 /* League */
 .table-wrap { overflow-x: auto; }
@@ -210,7 +212,7 @@ h2 { font-size: 1.2rem; color: var(--muted); margin: 28px 0 12px; }
 .big-ish { font-size: 2rem; line-height: 1.1; }
 .error-banner {
   position: fixed; top: 12px; left: 12px; right: 12px; z-index: 50; display: flex; gap: 12px; align-items: center;
-  justify-content: space-between; padding: 10px 14px; border-radius: 12px; background: #3a1010; border: 1px solid var(--bad);
+  justify-content: space-between; padding: 10px 14px; border-radius: 12px; background: #fde7ec; border: 1px solid var(--bad);
 }
 .game-card { padding: 0; }
 .gc-main { display: grid; gap: 6px; padding: 14px; width: 100%; background: none; border: 0; text-align: left; }
@@ -228,9 +230,9 @@ h2 { font-size: 1.2rem; color: var(--muted); margin: 28px 0 12px; }
 .tip::after {
   content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
   width: max-content; max-width: min(260px, 80vw); padding: 8px 10px; border-radius: 8px;
-  background: var(--surface-2, #1c1c24); color: var(--text); border: 1px solid var(--line, rgba(255,255,255,0.12));
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--line);
   font-size: 0.78rem; font-weight: 400; line-height: 1.35; letter-spacing: 0; text-transform: none; text-align: left; white-space: normal;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.35); opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 50;
+  box-shadow: 0 6px 20px rgba(27,31,42,0.14); opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 50;
 }
 .tip:hover::after, .tip:focus::after, .tip:focus-visible::after { opacity: 1; }
 .tip:focus { outline: none; }

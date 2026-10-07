@@ -28,19 +28,19 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 const PHASE_COLOR: Record<Phase, string> = {
-  buildUp: '#f7dc85', progression: '#f5cf55', creation: '#f2c230', highBlock: '#6b7383', midBlock: '#4c5362', lowBlock: '#343a46',
-  attTransition: '#ffffff', defTransition: '#cfcfd6', attSetPiece: '#e8a317', defSetPiece: '#b38019',
+  buildUp: '#6EE7B7', progression: '#10B981', creation: '#047857', highBlock: '#CBD5E1', midBlock: '#94A3B8', lowBlock: '#64748B',
+  attTransition: '#1B1F2A', defTransition: '#475569', attSetPiece: '#F59E0B', defSetPiece: '#B45309',
 };
 
 /** Log tags (mockup): what kind of moment each line is. */
 type Tag = 'pos' | 'tr' | 'set' | 'shot' | 'goal' | 'card' | 'dir' | 'sig';
 const TAG: Record<Tag, { label: string; color: string }> = {
-  pos: { label: 'Open play', color: VIEW_COLOR },
-  tr: { label: 'Transition', color: '#fff' },
-  set: { label: 'Set piece', color: 'var(--amber)' },
-  shot: { label: 'Shot', color: VIEW_COLOR },
-  goal: { label: 'Goal', color: VIEW_COLOR },
-  card: { label: 'Foul', color: 'var(--amber)' },
+  pos: { label: 'Open play', color: 'var(--primary)' },
+  tr: { label: 'Transition', color: '#334155' },
+  set: { label: 'Set piece', color: '#B45309' },
+  shot: { label: 'Shot', color: 'var(--secondary)' },
+  goal: { label: 'Goal', color: 'var(--primary)' },
+  card: { label: 'Foul', color: 'var(--bad)' },
   dir: { label: 'Facility', color: 'var(--accent)' },
   sig: { label: 'Signature', color: 'var(--accent)' },
 };
@@ -59,7 +59,7 @@ function tagOf(e: SoccerEvent): Tag {
 
 /** A chip per team (mockup): the phase, plus what they're doing right now. */
 function TeamChip({ name, color, phase, sub }: { name: string; color: string; phase: Phase | null; sub: string }) {
-  const c = !phase ? color : /Transition/.test(phase) ? '#fff' : /SetPiece/.test(phase) ? 'var(--amber)' : /Block/.test(phase) ? 'var(--steel)' : color;
+  const c = !phase ? color : /Transition/.test(phase) ? '#334155' : /SetPiece/.test(phase) ? 'var(--amber)' : /Block/.test(phase) ? 'var(--steel)' : color;
   return (
     <div className="arena-chip" style={{ ['--c' as string]: c }}>
       <small>{name}</small>
@@ -269,7 +269,7 @@ export function MatchView({ gameId }: { gameId: string }) {
       <div className="legend">
         <span><i style={{ background: VIEW_COLOR }} />In possession</span>
         <span><i style={{ background: 'var(--steel)' }} />Defensive block</span>
-        <span><i style={{ background: '#fff' }} />Transition</span>
+        <span><i style={{ background: '#334155' }} />Transition</span>
         <span><i style={{ background: 'var(--amber)' }} />Set piece</span>
         <span><i style={{ background: 'var(--accent)' }} />Facility</span>
       </div>
